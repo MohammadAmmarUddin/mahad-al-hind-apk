@@ -1,0 +1,29 @@
+abstract class RouteNames {
+  static const splash = 'splash';
+  static const onboarding = 'onboarding';
+  static const login = 'login';
+  static const signup = 'signup';
+  static const forgotPassword = 'forgot-password';
+  static const home = '/';
+  static const courses = '/courses';
+  static const courseDetail = '/courses/:id';
+  static const audio = '/audio';
+  static const audioPlayer = '/audio/player';
+  static const more = '/more';
+  static const videos = '/more/videos';
+  static const videoPlayer = '/more/videos/player';
+  static const shayekh = '/more/shayekh';
+  static const shayekhDetail = '/more/shayekh/:id';
+  static const attendance = '/more/attendance';
+  static const fees = '/more/fees';
+  static const certificates = '/more/certificates';
+  static const certificateVerify = '/certificate/verify/:id';
+  static const gallery = '/more/gallery';
+  static const galleryDetail = '/more/gallery/:id';
+  static const notifications = '/more/notifications';
+  static const profile = '/more/profile';
+  static const editProfile = '/more/profile/edit';
+  static const settings = '/more/settings';
+  static const dashboard = '/more/dashboard';
+  static const aiAssistant = '/more/ai-assistant';
+}

@@ -1,0 +1,34 @@
+{
+  "project_info": {
+    "project_number": "633455222843",
+    "project_id": "mahadapk",
+    "storage_bucket": "mahadapk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:633455222843:android:57e18943541a81fc73bc1e",
+        "android_client_info": {
+          "package_name": "com.mahad.apk"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "633455222843-PLACEHOLDER.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFDiDZyEMQtL1hRMHo8dCK-kyh2f4XRmw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
