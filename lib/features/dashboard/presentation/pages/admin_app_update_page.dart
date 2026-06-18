@@ -19,9 +19,11 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
   final _notesCtrl = TextEditingController();
   bool _forceUpdate = false;
   bool _updateEnabled = true;
-  bool _showToUpdated = false;
+  bool _showUpdateToOutdatedUsers = false;
   bool _saving = false;
   bool _hasExistingConfig = false;
+  String? _lastSavedField;
+  DateTime? _lastSavedTime;
 
   @override
   void initState() {
@@ -36,7 +38,7 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
           _hasExistingConfig = true;
           _forceUpdate = config.forceUpdate;
           _updateEnabled = config.updateEnabled;
-          _showToUpdated = config.showToUpdated;
+          _showUpdateToOutdatedUsers = config.showUpdateToOutdatedUsers;
         });
       }
     });
@@ -51,7 +53,47 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
     super.dispose();
   }
 
-  Future<void> _save() async {
+  void _showSavedIndicator(String field) {
+    setState(() {
+      _lastSavedField = field;
+      _lastSavedTime = DateTime.now();
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _lastSavedField == field) {
+        setState(() { _lastSavedField = null; _lastSavedTime = null; });
+      }
+    });
+  }
+
+  /// Instant toggle save — only sends toggle fields, no validation on version/apkUrl
+  Future<void> _saveToggles({String? field}) async {
+    setState(() => _saving = true);
+    try {
+      final dio = ref.read(dioClientProvider);
+      await dio.ensureTokenLoaded();
+      await dio.patch(
+        '${ApiEndpoints.adminAppUpdate}/toggles',
+        data: {
+          'forceUpdate': _forceUpdate,
+          'updateEnabled': _updateEnabled,
+          'showUpdateToOutdatedUsers': _showUpdateToOutdatedUsers,
+        },
+      );
+      ref.invalidate(adminUpdateConfigProvider);
+      if (mounted && field != null) _showSavedIndicator(field);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Full save — version, apkUrl, notes + toggles
+  Future<void> _saveAll() async {
     if (_versionCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Version is required'), backgroundColor: AppColors.error),
@@ -64,35 +106,27 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
       );
       return;
     }
-    await _sendPatch({
-      'latestVersion': _versionCtrl.text.trim(),
-      'minVersion': _minVersionCtrl.text.trim().isNotEmpty ? _minVersionCtrl.text.trim() : _versionCtrl.text.trim(),
-      'apkUrl': _apkUrlCtrl.text.trim(),
-      'releaseNotes': _notesCtrl.text.trim(),
-      'forceUpdate': _forceUpdate,
-      'updateEnabled': _updateEnabled,
-      'showToUpdated': _showToUpdated,
-    });
-  }
 
-  Future<void> _saveToggles() async {
-    await _sendPatch({
-      'forceUpdate': _forceUpdate,
-      'updateEnabled': _updateEnabled,
-      'showToUpdated': _showToUpdated,
-    });
-  }
-
-  Future<void> _sendPatch(Map<String, dynamic> data) async {
     setState(() => _saving = true);
     try {
       final dio = ref.read(dioClientProvider);
       await dio.ensureTokenLoaded();
-      await dio.patch(ApiEndpoints.adminAppUpdate, data: data);
+      await dio.patch(
+        ApiEndpoints.adminAppUpdate,
+        data: {
+          'latestVersion': _versionCtrl.text.trim(),
+          'minVersion': _minVersionCtrl.text.trim().isNotEmpty ? _minVersionCtrl.text.trim() : _versionCtrl.text.trim(),
+          'apkUrl': _apkUrlCtrl.text.trim(),
+          'releaseNotes': _notesCtrl.text.trim(),
+          'forceUpdate': _forceUpdate,
+          'updateEnabled': _updateEnabled,
+          'showUpdateToOutdatedUsers': _showUpdateToOutdatedUsers,
+        },
+      );
       ref.invalidate(adminUpdateConfigProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved!'), backgroundColor: AppColors.success),
+          const SnackBar(content: Text('Update config saved!'), backgroundColor: AppColors.success),
         );
       }
     } catch (e) {
@@ -106,13 +140,141 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
     }
   }
 
+  Widget _savedBadge(String field) {
+    if (_lastSavedField != field) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.success.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle, size: 12, color: AppColors.success),
+          SizedBox(width: 4),
+          Text('Saved', style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('App Update Management')),
+      appBar: AppBar(
+        title: const Text('App Update Management'),
+        actions: [
+          if (_saving)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ─── LIVE TOGGLES (auto-save, no publish needed) ───
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.toggle_on, color: AppColors.primary, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Live Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('Auto-save', style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('Changes apply instantly across all devices', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  const SizedBox(height: 16),
+
+                  // Update Enabled
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Row(
+                      children: [
+                        const Text('Update Enabled', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                        _savedBadge('updateEnabled'),
+                      ],
+                    ),
+                    subtitle: Text(
+                      _updateEnabled ? 'Update check is active — users will be notified of new versions' : 'Updates disabled — app behaves normally, no checks',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: _updateEnabled,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: (v) { setState(() => _updateEnabled = v); _saveToggles(field: 'updateEnabled'); },
+                  ),
+                  const Divider(height: 1),
+
+                  // Show to outdated users
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Row(
+                      children: [
+                        const Text('Show to Outdated Users', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                        _savedBadge('showUpdateToOutdatedUsers'),
+                      ],
+                    ),
+                    subtitle: Text(
+                      _showUpdateToOutdatedUsers ? 'Only users running an older version will see update prompts' : 'No update prompts shown even if newer version exists',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: _showUpdateToOutdatedUsers,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: (v) { setState(() => _showUpdateToOutdatedUsers = v); _saveToggles(field: 'showUpdateToOutdatedUsers'); },
+                  ),
+                  const Divider(height: 1),
+
+                  // Force Update
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Row(
+                      children: [
+                        const Text('Force Update', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                        _savedBadge('forceUpdate'),
+                      ],
+                    ),
+                    subtitle: Text(
+                      _forceUpdate
+                          ? 'Blocks access on next launch until user updates (never interrupts active sessions)'
+                          : 'Optional update — users may choose "Later"',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: _forceUpdate,
+                    activeThumbColor: AppColors.error,
+                    onChanged: (v) { setState(() => _forceUpdate = v); _saveToggles(field: 'forceUpdate'); },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ─── VERSION & APK CONFIG ───
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -130,17 +292,17 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                         child: const Icon(Icons.system_update_rounded, color: Color(0xFFD4AF37), size: 22),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(child: Text('Publish App Update', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+                      const Expanded(child: Text('Version Config', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  const Text('Set version, APK link, and release notes for users', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  const Text('Set version, APK link, and release notes', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                   const SizedBox(height: 20),
                   TextField(
                     controller: _versionCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Latest Version *',
-                      hintText: 'e.g. 1.2.0',
+                      hintText: 'e.g. 1.3.0',
                       prefixIcon: Icon(Icons.tag, size: 20),
                     ),
                   ),
@@ -158,7 +320,7 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                     controller: _apkUrlCtrl,
                     decoration: const InputDecoration(
                       labelText: 'APK Download URL *',
-                      hintText: 'https://your-server.com/app-release.apk',
+                      hintText: 'https://github.com/.../app-release.apk',
                       prefixIcon: Icon(Icons.link, size: 20),
                     ),
                     maxLines: 2,
@@ -174,55 +336,15 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                     maxLines: 4,
                   ),
                   const SizedBox(height: 16),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Force Update', style: TextStyle(fontSize: 14)),
-                    subtitle: Text(
-                      _forceUpdate ? 'Users must update to continue' : 'Users can skip this update',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    value: _forceUpdate,
-                    activeThumbColor: AppColors.error,
-                    onChanged: _hasExistingConfig
-                        ? (v) { setState(() => _forceUpdate = v); _saveToggles(); }
-                        : (v) => setState(() => _forceUpdate = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Update Enabled', style: TextStyle(fontSize: 14)),
-                    subtitle: Text(
-                      _updateEnabled ? 'Update check is active' : 'Updates disabled',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    value: _updateEnabled,
-                    activeThumbColor: AppColors.primary,
-                    onChanged: _hasExistingConfig
-                        ? (v) { setState(() => _updateEnabled = v); _saveToggles(); }
-                        : (v) => setState(() => _updateEnabled = v),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Show to Updated Users', style: TextStyle(fontSize: 14)),
-                    subtitle: Text(
-                      _showToUpdated ? 'Shows popup even if user has latest version' : 'Only shows to users with older version',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    value: _showToUpdated,
-                    activeThumbColor: AppColors.primary,
-                    onChanged: _hasExistingConfig
-                        ? (v) { setState(() => _showToUpdated = v); _saveToggles(); }
-                        : (v) => setState(() => _showToUpdated = v),
-                  ),
-                  const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: FilledButton.icon(
-                      onPressed: _saving ? null : _save,
+                      onPressed: _saving ? null : _saveAll,
                       icon: _saving
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.publish_rounded, size: 20),
-                      label: Text(_saving ? 'Publishing...' : 'Publish Update'),
+                          : const Icon(Icons.save_rounded, size: 20),
+                      label: Text(_saving ? 'Saving...' : 'Save Version Config'),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFFD4AF37),
                         foregroundColor: const Color(0xFF0A3D1F),
@@ -235,13 +357,15 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
             ),
           ),
           const SizedBox(height: 16),
+
+          // ─── CURRENT STATUS ───
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Current App Info', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Text('Current Status', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 10),
                   ref.watch(currentVersionProvider).when(
                     data: (v) => _infoRow('Installed Version', 'v$v'),
@@ -257,7 +381,8 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                         children: [
                           _infoRow('Published Version', 'v${config.latestVersion}'),
                           _infoRow('Force Update', config.forceUpdate ? 'Yes' : 'No'),
-                          _infoRow('Status', config.updateEnabled ? 'Active' : 'Disabled'),
+                          _infoRow('Update Enabled', config.updateEnabled ? 'Active' : 'Disabled'),
+                          _infoRow('Show to Outdated', config.showUpdateToOutdatedUsers ? 'Yes' : 'No'),
                         ],
                       );
                     },

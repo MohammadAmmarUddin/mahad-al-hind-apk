@@ -49,7 +49,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    final shouldNavigate = await _checkForUpdate();
+    final shouldNavigate = await _handleUpdateLogic();
 
     if (!mounted) return;
     if (shouldNavigate) {
@@ -57,18 +57,52 @@ class _SplashPageState extends ConsumerState<SplashPage>
     }
   }
 
-  Future<bool> _checkForUpdate() async {
+  /// Core update logic. Returns true if user should proceed to app.
+  Future<bool> _handleUpdateLogic() async {
     try {
-      final config = await ref.read(updateServiceProvider).checkForUpdate();
+      final updateService = ref.read(updateServiceProvider);
+      final currentVersion = await UpdateService.getCurrentVersion();
 
+      // ─── STEP 1: Detect post-update launch ───
+      final isPostUpdate = await updateService.isPostUpdateLaunch();
+      if (isPostUpdate) {
+        // User just installed an update — record completion, skip all popups
+        await updateService.recordUpdateCompleted();
+        print('[Splash] Post-update launch detected for v$currentVersion — skipping popup');
+        return true;
+      }
+
+      // ─── STEP 2: Always record current installed version ───
+      await updateService.recordCurrentVersion(currentVersion);
+
+      // ─── STEP 3: Smart check interval (don't spam API on rapid restarts) ───
+      final shouldCheck = await updateService.shouldCheckForUpdate();
+      if (!shouldCheck) return true;
+
+      // ─── STEP 4: Fetch config from server ───
+      final config = await updateService.checkForUpdate();
+      await updateService.recordCheck();
+
+      // If update system is disabled or config missing, proceed normally
       if (config == null || !config.updateEnabled) return true;
 
-      final currentVersion = await UpdateService.getCurrentVersion();
-      final updateAvailable =
-          UpdateService.isUpdateAvailable(currentVersion, config);
+      // ─── STEP 5: Core rule — NEVER show popup if current >= latest ───
+      if (UpdateService.isUpToDate(currentVersion, config)) {
+        // User is already on latest version — no popup, ever
+        return true;
+      }
 
-      if (!updateAvailable && !config.showToUpdated) return true;
+      // ─── STEP 6: Check if user already dismissed this exact version ───
+      final lastDismissed = await updateService.getLastDismissedVersion();
+      if (lastDismissed == config.latestVersion) {
+        // User already dismissed this version — don't nag them again
+        // But still check if it's a force update (force overrides dismiss)
+        if (!config.forceUpdate && !UpdateService.isBelowMinVersion(currentVersion, config)) {
+          return true;
+        }
+      }
 
+      // ─── STEP 7: Determine if force update ───
       final isForce = config.forceUpdate ||
           UpdateService.isBelowMinVersion(currentVersion, config);
 
@@ -79,30 +113,35 @@ class _SplashPageState extends ConsumerState<SplashPage>
         apkUrl: config.apkUrl,
         releaseNotes: config.releaseNotes,
         updateEnabled: config.updateEnabled,
-        showToUpdated: config.showToUpdated,
+        showUpdateToOutdatedUsers: config.showUpdateToOutdatedUsers,
       );
 
       if (!mounted) return true;
 
+      // ─── STEP 8: Show appropriate dialog ───
       if (isForce) {
+        // Force update: block until user installs new version
         await _showForceBlockingDialog(effectiveConfig);
         return false;
       } else {
+        // Optional update: show dialog, let user dismiss
         bool dismissed = false;
         await UpdateDialog.show(context, effectiveConfig, onLater: () {
           dismissed = true;
+          updateService.recordDismissedVersion(config.latestVersion);
         });
         return dismissed;
       }
     } catch (e) {
+      // On error, let user through — never block on network failure
+      print('[Splash] Update check error: $e');
       return true;
     }
   }
 
+  /// Force update loop: blocks until installed version matches latest.
   Future<void> _showForceBlockingDialog(AppUpdateConfig config) async {
     while (mounted) {
-      bool downloadComplete = false;
-
       await showDialog(
         context: context,
         barrierDismissible: false,
@@ -115,14 +154,18 @@ class _SplashPageState extends ConsumerState<SplashPage>
         ),
       );
 
+      // After dialog closes (user attempted install), wait and re-check
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
 
       final currentVersion = await UpdateService.getCurrentVersion();
-      final stillNeedsUpdate =
-          UpdateService.isUpdateAvailable(currentVersion, config);
+      final stillNeedsUpdate = UpdateService.isUpdateAvailable(currentVersion, config);
 
-      if (!stillNeedsUpdate) return;
+      if (!stillNeedsUpdate) {
+        // User successfully updated — record it
+        await ref.read(updateServiceProvider).recordUpdateCompleted();
+        return;
+      }
     }
   }
 

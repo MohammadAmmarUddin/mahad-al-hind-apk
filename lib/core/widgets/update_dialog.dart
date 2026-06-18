@@ -5,6 +5,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import '../constants/app_colors.dart';
 import '../models/app_update_config.dart';
+import '../services/update_service.dart';
 
 class UpdateDialog extends StatefulWidget {
   final AppUpdateConfig config;
@@ -103,6 +104,11 @@ class _UpdateDialogState extends State<UpdateDialog>
 
       final result = await OpenFilex.open(filePath,
           type: 'application/vnd.android.package-archive');
+
+      if (result.type == ResultType.done) {
+        // Record that update was successfully initiated — next launch will be post-update
+        await UpdateService.recordUpdateCompleted();
+      }
 
       if (result.type != ResultType.done && mounted) {
         setState(() {

@@ -5,7 +5,7 @@ class AppUpdateConfig {
   final String apkUrl;
   final String releaseNotes;
   final bool updateEnabled;
-  final bool showToUpdated;
+  final bool showUpdateToOutdatedUsers;
 
   const AppUpdateConfig({
     this.latestVersion = '',
@@ -14,7 +14,7 @@ class AppUpdateConfig {
     this.apkUrl = '',
     this.releaseNotes = '',
     this.updateEnabled = true,
-    this.showToUpdated = false,
+    this.showUpdateToOutdatedUsers = false,
   });
 
   factory AppUpdateConfig.fromJson(Map<String, dynamic> json) {
@@ -25,7 +25,7 @@ class AppUpdateConfig {
       apkUrl: json['apkUrl']?.toString() ?? '',
       releaseNotes: json['releaseNotes']?.toString() ?? '',
       updateEnabled: json['updateEnabled'] ?? true,
-      showToUpdated: json['showToUpdated'] ?? false,
+      showUpdateToOutdatedUsers: json['showUpdateToOutdatedUsers'] ?? json['showToUpdated'] ?? false,
     );
   }
 
@@ -36,6 +36,6 @@ class AppUpdateConfig {
     'apkUrl': apkUrl,
     'releaseNotes': releaseNotes,
     'updateEnabled': updateEnabled,
-    'showToUpdated': showToUpdated,
+    'showUpdateToOutdatedUsers': showUpdateToOutdatedUsers,
   };
 }
