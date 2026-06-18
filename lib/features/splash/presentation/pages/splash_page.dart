@@ -21,7 +21,6 @@ class _SplashPageState extends ConsumerState<SplashPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   double _progress = 0;
-  bool _forceUpdateBlocked = false;
 
   @override
   void initState() {
@@ -43,85 +42,87 @@ class _SplashPageState extends ConsumerState<SplashPage>
     });
 
     _controller.forward();
-    _checkForUpdate();
+    _init();
   }
 
-  Future<void> _checkForUpdate() async {
+  Future<void> _init() async {
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    AppUpdateConfig? config;
-    try {
-      config = await ref.read(updateServiceProvider).checkForUpdate();
-    } catch (e) {
-      print('[Splash] Update check error: $e');
-    }
+    final shouldNavigate = await _checkForUpdate();
 
     if (!mounted) return;
-
-    if (config != null && config.updateEnabled) {
-      final currentVersion = await UpdateService.getCurrentVersion();
-      final updateAvailable = UpdateService.isUpdateAvailable(currentVersion, config);
-
-      if (updateAvailable) {
-        final isForce = config.forceUpdate ||
-            UpdateService.isBelowMinVersion(currentVersion, config);
-
-        if (isForce) {
-          _forceUpdateBlocked = true;
-          _showForceUpdateDialog(config);
-          return;
-        } else {
-          final effectiveConfig = AppUpdateConfig(
-            latestVersion: config.latestVersion,
-            minVersion: config.minVersion,
-            forceUpdate: false,
-            apkUrl: config.apkUrl,
-            releaseNotes: config.releaseNotes,
-            updateEnabled: config.updateEnabled,
-          );
-          bool dismissed = false;
-          await UpdateDialog.show(context, effectiveConfig, onLater: () {
-            dismissed = true;
-          });
-          if (!mounted) return;
-          if (!dismissed) return;
-        }
-      }
-    }
-
-    if (!_forceUpdateBlocked) {
+    if (shouldNavigate) {
       _navigateToApp();
     }
   }
 
-  void _showForceUpdateDialog(AppUpdateConfig config) {
-    final effectiveConfig = AppUpdateConfig(
-      latestVersion: config.latestVersion,
-      minVersion: config.minVersion,
-      forceUpdate: true,
-      apkUrl: config.apkUrl,
-      releaseNotes: config.releaseNotes,
-      updateEnabled: config.updateEnabled,
-    );
+  Future<bool> _checkForUpdate() async {
+    try {
+      final config = await ref.read(updateServiceProvider).checkForUpdate();
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: UpdateDialog(
-          config: effectiveConfig,
-          onLater: null,
-        ),
-        ),
-    ).then((_) {
-      if (mounted) {
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) _checkForUpdate();
+      if (config == null || !config.updateEnabled) return true;
+
+      final currentVersion = await UpdateService.getCurrentVersion();
+      final updateAvailable =
+          UpdateService.isUpdateAvailable(currentVersion, config);
+
+      if (!updateAvailable) return true;
+
+      final isForce = config.forceUpdate ||
+          UpdateService.isBelowMinVersion(currentVersion, config);
+
+      final effectiveConfig = AppUpdateConfig(
+        latestVersion: config.latestVersion,
+        minVersion: config.minVersion,
+        forceUpdate: isForce,
+        apkUrl: config.apkUrl,
+        releaseNotes: config.releaseNotes,
+        updateEnabled: config.updateEnabled,
+      );
+
+      if (!mounted) return true;
+
+      if (isForce) {
+        await _showForceBlockingDialog(effectiveConfig);
+        return false;
+      } else {
+        bool dismissed = false;
+        await UpdateDialog.show(context, effectiveConfig, onLater: () {
+          dismissed = true;
         });
+        return dismissed;
       }
-    });
+    } catch (e) {
+      return true;
+    }
+  }
+
+  Future<void> _showForceBlockingDialog(AppUpdateConfig config) async {
+    while (mounted) {
+      bool downloadComplete = false;
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => PopScope(
+          canPop: false,
+          child: UpdateDialog(
+            config: config,
+            onLater: null,
+          ),
+        ),
+      );
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      final currentVersion = await UpdateService.getCurrentVersion();
+      final stillNeedsUpdate =
+          UpdateService.isUpdateAvailable(currentVersion, config);
+
+      if (!stillNeedsUpdate) return;
+    }
   }
 
   void _navigateToApp() {
@@ -231,7 +232,9 @@ class _SplashPageState extends ConsumerState<SplashPage>
                                 value: _progress,
                                 minHeight: 5,
                                 backgroundColor: Colors.transparent,
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                                valueColor:
+                                    const AlwaysStoppedAnimation<Color>(
+                                        Color(0xFFD4AF37)),
                               ),
                             ),
                           ),

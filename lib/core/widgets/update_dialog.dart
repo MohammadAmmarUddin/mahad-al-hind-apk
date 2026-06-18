@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import '../constants/app_colors.dart';
 import '../models/app_update_config.dart';
 
@@ -9,7 +13,8 @@ class UpdateDialog extends StatefulWidget {
 
   const UpdateDialog({super.key, required this.config, this.onLater});
 
-  static Future<void> show(BuildContext context, AppUpdateConfig config, {VoidCallback? onLater}) {
+  static Future<void> show(BuildContext context, AppUpdateConfig config,
+      {VoidCallback? onLater}) {
     return showDialog(
       context: context,
       barrierDismissible: !config.forceUpdate,
@@ -29,6 +34,12 @@ class _UpdateDialogState extends State<UpdateDialog>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
 
+  double _progress = 0;
+  bool _downloading = false;
+  bool _downloadComplete = false;
+  String? _error;
+  CancelToken? _cancelToken;
+
   @override
   void initState() {
     super.initState();
@@ -36,29 +47,93 @@ class _UpdateDialogState extends State<UpdateDialog>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 1, end: 1.05).animate(_pulseController);
+    _pulseAnim =
+        Tween<double>(begin: 1, end: 1.05).animate(_pulseController);
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _cancelToken?.cancel();
     super.dispose();
   }
 
-  Future<void> _download() async {
-    final uri = Uri.parse(widget.config.apkUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-    if (mounted && widget.config.forceUpdate) {
-      Navigator.of(context).pop();
+  Future<void> _downloadAndInstall() async {
+    if (_downloading || widget.config.apkUrl.isEmpty) return;
+
+    setState(() {
+      _downloading = true;
+      _progress = 0;
+      _error = null;
+    });
+
+    try {
+      final dir = await getTemporaryDirectory();
+      final filePath = '${dir.path}/app-update.apk';
+      final file = File(filePath);
+
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      _cancelToken = CancelToken();
+
+      final dio = Dio();
+      await dio.download(
+        widget.config.apkUrl,
+        filePath,
+        cancelToken: _cancelToken,
+        onReceiveProgress: (received, total) {
+          if (total > 0 && mounted) {
+            setState(() {
+              _progress = received / total;
+            });
+          }
+        },
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _downloading = false;
+        _downloadComplete = true;
+        _progress = 1;
+      });
+
+      final result = await OpenFilex.open(filePath,
+          type: 'application/vnd.android.package-archive');
+
+      if (result.type != ResultType.done && mounted) {
+        setState(() {
+          _error = 'Could not open installer: ${result.message}';
+          _downloadComplete = false;
+        });
+      }
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) return;
+      if (mounted) {
+        setState(() {
+          _error = 'Download failed: ${e.message}';
+          _downloading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Error: $e';
+          _downloading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final config = widget.config;
-    final notes = config.releaseNotes.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final notes = config.releaseNotes
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -72,7 +147,10 @@ class _UpdateDialogState extends State<UpdateDialog>
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 30, offset: const Offset(0, 10)),
+            BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 30,
+                offset: const Offset(0, 10)),
           ],
         ),
         child: Column(
@@ -84,16 +162,18 @@ class _UpdateDialogState extends State<UpdateDialog>
               children: [
                 Container(
                   height: 140,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                    color: Colors.white.withOpacity(0.08),
+                  decoration: const BoxDecoration(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(24)),
+                    color: Colors.white10,
                   ),
                 ),
                 Positioned(
                   top: -10,
                   child: AnimatedBuilder(
                     animation: _pulseAnim,
-                    builder: (_, child) => Transform.scale(scale: _pulseAnim.value, child: child),
+                    builder: (_, child) => Transform.scale(
+                        scale: _pulseAnim.value, child: child),
                     child: Container(
                       width: 80,
                       height: 80,
@@ -109,29 +189,56 @@ class _UpdateDialogState extends State<UpdateDialog>
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.system_update_rounded, color: Colors.white, size: 40),
+                      child: _downloading
+                          ? Padding(
+                              padding: const EdgeInsets.all(18),
+                              child: CircularProgressIndicator(
+                                value: _progress,
+                                strokeWidth: 4,
+                                color: Colors.white,
+                                backgroundColor:
+                                    Colors.white.withOpacity(0.2),
+                              ),
+                            )
+                          : _downloadComplete
+                              ? const Icon(Icons.check_rounded,
+                                  color: Colors.white, size: 40)
+                              : const Icon(Icons.system_update_rounded,
+                                  color: Colors.white, size: 40),
                     ),
                   ),
                 ),
                 Positioned(
                   bottom: 16,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: config.forceUpdate ? AppColors.error.withOpacity(0.9) : const Color(0xFFD4AF37).withOpacity(0.9),
+                      color: config.forceUpdate
+                          ? AppColors.error.withOpacity(0.9)
+                          : const Color(0xFFD4AF37).withOpacity(0.9),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          config.forceUpdate ? Icons.warning_amber_rounded : Icons.new_releases_rounded,
-                          color: Colors.white, size: 16,
+                          config.forceUpdate
+                              ? Icons.warning_amber_rounded
+                              : Icons.new_releases_rounded,
+                          color: Colors.white,
+                          size: 16,
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          config.forceUpdate ? 'REQUIRED UPDATE' : 'NEW VERSION',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          config.forceUpdate
+                              ? 'REQUIRED UPDATE'
+                              : 'NEW VERSION',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1),
                         ),
                       ],
                     ),
@@ -145,8 +252,10 @@ class _UpdateDialogState extends State<UpdateDialog>
                 children: [
                   const SizedBox(height: 8),
                   Text(
-                    'Update Available',
-                    style: TextStyle(
+                    _downloadComplete
+                        ? 'Download Complete'
+                        : 'Update Available',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -154,17 +263,71 @@ class _UpdateDialogState extends State<UpdateDialog>
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       'v${config.latestVersion}',
-                      style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 13, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                          color: Color(0xFFD4AF37),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700),
                     ),
                   ),
-                  if (notes.isNotEmpty) ...[
+                  if (_downloading) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      '${(_progress * 100).toInt()}%',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: _progress,
+                          minHeight: 6,
+                          backgroundColor: Colors.transparent,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFFD4AF37)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Downloading update...',
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.7), fontSize: 12),
+                    ),
+                  ],
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(
+                            color: Colors.redAccent, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                  if (!_downloading && !_downloadComplete && notes.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
@@ -178,24 +341,33 @@ class _UpdateDialogState extends State<UpdateDialog>
                         children: [
                           const Text(
                             "What's New",
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 6),
                           ...notes.map((n) => Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('• ', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
-                                Expanded(
-                                  child: Text(
-                                    n,
-                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                  ),
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('• ',
+                                        style: TextStyle(
+                                            color: Color(0xFFD4AF37),
+                                            fontSize: 12)),
+                                    Expanded(
+                                      child: Text(
+                                        n,
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          )),
+                              )),
                         ],
                       ),
                     ),
@@ -205,24 +377,43 @@ class _UpdateDialogState extends State<UpdateDialog>
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _download,
+                      onPressed: _downloading
+                          ? null
+                          : _downloadComplete
+                              ? () => Navigator.of(context).pop()
+                              : _downloadAndInstall,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD4AF37),
-                        foregroundColor: const Color(0xFF0A3D1F),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        backgroundColor: _downloadComplete
+                            ? Colors.green
+                            : const Color(0xFFD4AF37),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
                         elevation: 4,
+                        disabledBackgroundColor: Colors.white24,
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.download_rounded, size: 20),
-                          SizedBox(width: 8),
-                          Text('Update Now', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          Icon(
+                            _downloadComplete
+                                ? Icons.check_circle_rounded
+                                : Icons.download_rounded,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _downloadComplete
+                                ? 'Tap to Continue'
+                                : 'Update Now',
+                            style: const TextStyle(
+                                fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  if (!config.forceUpdate) ...[
+                  if (!config.forceUpdate && !_downloading) ...[
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
@@ -231,7 +422,9 @@ class _UpdateDialogState extends State<UpdateDialog>
                           Navigator.pop(context);
                           widget.onLater?.call();
                         },
-                        child: const Text('Later', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        child: const Text('Later',
+                            style: TextStyle(
+                                color: Colors.white70, fontSize: 14)),
                       ),
                     ),
                   ],
