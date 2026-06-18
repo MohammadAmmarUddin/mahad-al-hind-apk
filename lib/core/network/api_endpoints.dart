@@ -8,6 +8,12 @@ abstract class ApiEndpoints {
   static const String forgetPassword = '/api/user/forgetPassword';
   static const String resetPassword = '/api/user/resetPassword';
   
+  // V1 Auth
+  static const String v1GoogleAuth = '/api/v1/auth/google';
+  static const String v1RefreshToken = '/api/v1/auth/refresh';
+  static const String v1Logout = '/api/v1/auth/logout';
+  static const String v1Me = '/api/v1/auth/me';
+  
   // User
   static const String allUsers = '/api/user/allUsers';
   static const String allUsersCount = '/api/user/allUsersCount';
@@ -81,4 +87,13 @@ abstract class ApiEndpoints {
   static String singleNotification(String id) => '/api/notifications/$id';
   
   // Certificates
-  static String verifyCertificate(String id) => '/api/
+  static String verifyCertificate(String id) => '/api/certificate/check/$id';
+  static const String certificates = '/api/certificate';
+  
+  // Orders
+  static const String orders = '/api/orders';
+  
+  // App Update
+  static const String appVersion = '/api/app/version';
+  static const String adminAppUpdate = '/api/admin/app-update';
+}

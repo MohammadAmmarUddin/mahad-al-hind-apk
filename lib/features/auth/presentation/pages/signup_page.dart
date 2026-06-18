@@ -24,7 +24,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _batchController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -36,7 +35,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _batchController.dispose();
     super.dispose();
   }
 
@@ -49,7 +47,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
         password: _passwordController.text,
-        batch: _batchController.text.trim(),
       );
       if (mounted) {
         context.go('/');
@@ -143,14 +140,6 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                 ),
                 const SizedBox(height: 16),
                 AppTextField(
-                  label: 'Batch',
-                  hint: 'e.g. 2025-A',
-                  controller: _batchController,
-                  prefixIcon: Icons.class_outlined,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
                   label: AppStrings.password,
                   hint: 'Create a password',
                   controller: _passwordController,
@@ -214,6 +203,17 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 4),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => context.go('/'),
+                    icon: const Icon(Icons.arrow_back, size: 18),
+                    label: const Text('Return to Home'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                    ),
+                  ),
                 ),
               ],
             ),

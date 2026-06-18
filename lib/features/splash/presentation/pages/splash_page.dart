@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/storage/hive_storage.dart';
 import '../../../../core/models/app_update_config.dart';
 import '../../../../core/services/update_service.dart';
 import '../../../../core/services/update_provider.dart';
 import '../../../../core/widgets/update_dialog.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../shared/providers/core_providers.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -22,8 +20,6 @@ class SplashPage extends ConsumerStatefulWidget {
 class _SplashPageState extends ConsumerState<SplashPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _logoFade;
-  late Animation<double> _logoScale;
   double _progress = 0;
 
   @override
@@ -34,17 +30,15 @@ class _SplashPageState extends ConsumerState<SplashPage>
       statusBarIconBrightness: Brightness.light,
     ));
 
-    _controller = AnimationController(duration: const Duration(seconds: 2), vsync: this);
-
-    _logoFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.4, curve: Curves.easeOut)),
-    );
-    _logoScale = Tween<double>(begin: 0.5, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.5, curve: Curves.elasticOut)),
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
     );
 
     _controller.addListener(() {
-      setState(() { _progress = _controller.value; });
+      setState(() {
+        _progress = _controller.value;
+      });
     });
 
     _controller.forward();
@@ -52,46 +46,54 @@ class _SplashPageState extends ConsumerState<SplashPage>
   }
 
   Future<void> _initAndNavigate() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
-    // Check for update
+    bool navigatedFromDialog = false;
+
     try {
-      final dio = ref.read(dioClientProvider);
-      final pkgInfo = await PackageInfo.fromPlatform();
-      final currentVersion = pkgInfo.version;
-
-      final response = await dio.get('/api/app/version');
-      final data = response.data;
-
-      AppUpdateConfig? config;
-      if (data is Map && data['data'] is Map) {
-        config = AppUpdateConfig.fromJson(Map<String, dynamic>.from(data['data']));
-      } else if (data is Map && data['latestVersion'] != null) {
-        config = AppUpdateConfig.fromJson(Map<String, dynamic>.from(data));
-      }
+      final config = await ref.read(updateServiceProvider).checkForUpdate();
+      final currentVersion = await UpdateService.getCurrentVersion();
 
       if (config != null &&
-          config.updateEnabled &&
-          config.latestVersion.isNotEmpty &&
-          UpdateService.compareVersions(currentVersion, config.latestVersion) < 0) {
-
+          UpdateService.isUpdateAvailable(currentVersion, config)) {
         if (!mounted) return;
-        await UpdateDialog.show(context, config, onLater: () {
-          _navigateToApp();
-        });
+
+        final isForce = config.forceUpdate ||
+            UpdateService.isBelowMinVersion(currentVersion, config);
+
+        final effectiveConfig = AppUpdateConfig(
+          latestVersion: config.latestVersion,
+          minVersion: config.minVersion,
+          forceUpdate: isForce,
+          apkUrl: config.apkUrl,
+          releaseNotes: config.releaseNotes,
+          updateEnabled: config.updateEnabled,
+        );
+
+        if (isForce) {
+          await UpdateDialog.show(context, effectiveConfig);
+          if (mounted) _initAndNavigate();
+          return;
+        } else {
+          await UpdateDialog.show(context, effectiveConfig, onLater: () {
+            navigatedFromDialog = true;
+            _navigateToApp();
+          });
+        }
       }
-    } catch (_) {
-      // No network or update check failed — proceed normally
-    }
+    } catch (_) {}
 
     if (!mounted) return;
-    _navigateToApp();
+    if (!navigatedFromDialog) {
+      _navigateToApp();
+    }
   }
 
   void _navigateToApp() {
-    final isFirstTime = HiveStorage.getSetting('is_first_time', defaultValue: true);
+    final isFirstTime =
+        HiveStorage.getSetting('is_first_time', defaultValue: true);
     if (isFirstTime == true) {
       HiveStorage.saveSetting('is_first_time', false);
       context.go('/onboarding');
@@ -137,7 +139,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
                 height: size.width * 0.8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.04),
+                  color: Colors.white.withValues(alpha: 0.04),
                 ),
               ),
             ),
@@ -149,88 +151,68 @@ class _SplashPageState extends ConsumerState<SplashPage>
                 height: size.width * 0.7,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.03),
+                  color: Colors.white.withValues(alpha: 0.03),
                 ),
               ),
             ),
-            SafeArea(
+            Center(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Spacer(flex: 3),
-                  AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: _logoScale.value,
-                        child: Opacity(
-                          opacity: _logoFade.value,
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: Image.asset(
-                      'assets/images/golden22full.png',
-                      width: size.width * 0.55,
-                      height: size.width * 0.55,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 160,
-                        height: 160,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFD4AF37).withOpacity(0.3),
-                              blurRadius: 40,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.mosque_rounded, size: 70, color: AppColors.primary),
+                  Image.asset(
+                    AppAssets.logo,
+                    width: size.shortestSide * 0.35,
+                    height: size.shortestSide * 0.35,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: size.shortestSide * 0.35,
+                      height: size.shortestSide * 0.35,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      child: const Icon(
+                        Icons.mosque_rounded,
+                        size: 70,
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
                   const SizedBox(height: 50),
                   SizedBox(
-                    width: size.width * 0.55,
+                    width: size.width * 0.5,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: _progress,
-                            minHeight: 6,
-                            backgroundColor: Colors.white.withOpacity(0.15),
-                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                        Container(
+                          height: 5,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(3),
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: _progress,
+                              minHeight: 5,
+                              backgroundColor: Colors.transparent,
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           "Ma'hadul Qiraat Al Hind",
-                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Islamic Educational Ecosystem',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: const Color(0xFFD4AF37),
-                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.6),
+                            fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            letterSpacing: 0.3,
+                            letterSpacing: 2,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Spacer(flex: 3),
                 ],
               ),
             ),

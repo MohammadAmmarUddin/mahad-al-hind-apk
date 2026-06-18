@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/storage/hive_storage.dart';
 import '../../../../core/storage/home_section_toggles.dart';
 import '../../../../core/widgets/upload_progress_dialog.dart';
 import '../../../../shared/providers/core_providers.dart';
@@ -18,7 +17,7 @@ class AdminSiteContentPage extends ConsumerStatefulWidget {
 class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
   Map<String, dynamic>? _content;
   bool _loading = true;
-  List<String> _heroImages = [];
+  List<dynamic> _heroImages = [];
   bool _slideshow = false;
   bool _imagesOnly = false;
   Map<String, bool> _sectionToggles = {};
@@ -27,25 +26,26 @@ class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
   void initState() {
     super.initState();
     _fetchContent();
-    _loadHeroConfig();
     _sectionToggles = HomeSectionToggles.getAll();
   }
 
   void _loadHeroConfig() {
-    final data = HiveStorage.getCachedData('hero_banner_config');
-    if (data is Map) {
-      _heroImages = (data['images'] as List?)?.whereType<String>().toList() ?? [];
-      _slideshow = data['slideshow'] == true;
-      _imagesOnly = data['imagesOnly'] == true;
-    }
+    if (_content == null) return;
+    final banners = _content!['heroBanners'] as List<dynamic>? ?? [];
+    _heroImages = banners.map((b) => b is Map ? b['url'] ?? '' : '').where((u) => u.toString().isNotEmpty).toList();
+    final settings = _content!['heroBannerSettings'] as Map<String, dynamic>? ?? {};
+    _slideshow = settings['slideshow'] == true;
+    _imagesOnly = settings['imagesOnly'] == true;
   }
 
-  void _saveHeroConfig() {
-    HiveStorage.cacheData('hero_banner_config', {
-      'images': _heroImages,
-      'slideshow': _slideshow,
-      'imagesOnly': _imagesOnly,
-    }, expiry: const Duration(days: 365));
+  Future<void> _saveHeroConfig() async {
+    try {
+      final banners = _heroImages.map((url) => {'url': url}).toList();
+      await ref.read(dioClientProvider).patch('/api/site-content/public', data: {
+        'heroBanners': banners,
+        'heroBannerSettings': {'slideshow': _slideshow, 'imagesOnly': _imagesOnly},
+      });
+    } catch (_) {}
   }
 
   Future<void> _fetchContent() async {
@@ -54,6 +54,7 @@ class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
       final data = res.data;
       setState(() {
         if (data is Map && data['data'] is Map) _content = Map<String, dynamic>.from(data['data']);
+        _loadHeroConfig();
         _loading = false;
       });
     } catch (_) {

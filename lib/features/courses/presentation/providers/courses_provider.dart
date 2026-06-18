@@ -14,39 +14,59 @@ final coursesRepositoryProvider = Provider<CoursesRepositoryImpl>((ref) {
 });
 
 final coursesListProvider = FutureProvider<List<Course>>((ref) async {
-  return ref.read(coursesRepositoryProvider).getAllCourses();
+  try {
+    return await ref.read(coursesRepositoryProvider).getAllCourses();
+  } catch (_) {
+    return [];
+  }
 });
 
 final courseCategoriesProvider = FutureProvider<List<CourseCategory>>((ref) async {
-  return ref.read(coursesRepositoryProvider).getCourseCategories();
+  try {
+    return await ref.read(coursesRepositoryProvider).getCourseCategories();
+  } catch (_) {
+    return [];
+  }
 });
 
 final courseDetailProvider = FutureProvider.family<Course, String>((ref, id) async {
-  return ref.read(coursesRepositoryProvider).getSingleCourse(id);
+  try {
+    return await ref.read(coursesRepositoryProvider).getSingleCourse(id);
+  } catch (_) {
+    return Course(id: id);
+  }
 });
 
 final relatedCoursesProvider = FutureProvider.family<List<Course>, String>((ref, id) async {
-  return ref.read(coursesRepositoryProvider).getRelatedCourses(id);
+  try {
+    return await ref.read(coursesRepositoryProvider).getRelatedCourses(id);
+  } catch (_) {
+    return [];
+  }
 });
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 final selectedCategoryProvider = StateProvider<String?>((ref) => null);
 
 final filteredCoursesProvider = FutureProvider<List<Course>>((ref) async {
-  final search = ref.watch(searchQueryProvider);
-  final category = ref.watch(selectedCategoryProvider);
-  final allCourses = await ref.read(coursesRepositoryProvider).getAllCourses();
-  var filtered = allCourses;
-  if (category != null && category.isNotEmpty) {
-    filtered = filtered.where((c) => c.category == category).toList();
+  try {
+    final search = ref.watch(searchQueryProvider);
+    final category = ref.watch(selectedCategoryProvider);
+    final allCourses = await ref.read(coursesRepositoryProvider).getAllCourses();
+    var filtered = allCourses;
+    if (category != null && category.isNotEmpty) {
+      filtered = filtered.where((c) => c.category == category).toList();
+    }
+    if (search.isNotEmpty) {
+      final q = search.toLowerCase();
+      filtered = filtered.where((c) =>
+        (c.title?.toLowerCase().contains(q) ?? false) ||
+        (c.category?.toLowerCase().contains(q) ?? false) ||
+        (c.magnetLine?.toLowerCase().contains(q) ?? false)
+      ).toList();
+    }
+    return filtered;
+  } catch (_) {
+    return [];
   }
-  if (search.isNotEmpty) {
-    final q = search.toLowerCase();
-    filtered = filtered.where((c) =>
-      (c.title?.toLowerCase().contains(q) ?? false) ||
-      (c.category?.toLowerCase().contains(q) ?? false) ||
-      (c.magnetLine?.toLowerCase().contains(q) ?? false)
-    ).toList();
-  }
-  return filtered;
 });

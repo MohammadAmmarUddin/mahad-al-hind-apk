@@ -39,8 +39,8 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
       else if (coursesData is Map && coursesData['data'] is List) allCourses = coursesData['data'];
 
       List<dynamic> enrolled = [];
-      if (results.length > 1 && results[1] != null) {
-        final enrolledData = results[1]!.data;
+      if (results.length > 1) {
+        final enrolledData = results[1].data;
         if (enrolledData is List) enrolled = enrolledData;
         else if (enrolledData is Map && enrolledData['data'] is List) enrolled = enrolledData['data'];
       }

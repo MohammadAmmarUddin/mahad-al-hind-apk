@@ -1,0 +1,40 @@
+# flutter_native_splash configuration
+# Run: dart run flutter_native_splash:create
+
+flutter_native_splash:
+  # Android 12+ (API 31+) uses android12SplashScreen properties
+  android_12:
+    color: "#0F6B4A"
+    image: "assets/images/logo.png"
+    image_dark: "assets/images/logo.png"
+    color_dark: "#071F15"
+    icon_background_color: "#0F6B4A"
+    icon_background_color_dark: "#071F15"
+
+  # Android 11 and below (legacy splash)
+  color: "#0F6B4A"
+  image: "assets/images/logo.png"
+  image_dark: "assets/images/logo.png"
+  color_dark: "#071F15"
+
+  # iOS
+  ios: true
+  ios_background_color: "#0F6B4A"
+
+  # Web (if applicable)
+  web: false
+
+  # Branding
+  branding: "assets/images/logo.png"
+
+  # Full screen mode (removes status bar on splash)
+  fullscreen: true
+
+  # Supported platforms
+  android_12_compatible: true
+
+  # Stretch mode - fills the screen
+  stretch: false
+
+  # Gravity
+  gravity: center

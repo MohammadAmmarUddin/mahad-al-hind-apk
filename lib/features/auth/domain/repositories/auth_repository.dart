@@ -3,7 +3,7 @@ import '../entities/user.dart';
 abstract class AuthRepository {
   Future<User> login({required String email, required String password});
   Future<User> signup({required String firstname, required String lastname, required String email, required String phone, required String role, String? password, String? batch});
-  Future<User> googleLogin({required String email, required String name, String? photoUrl});
+  Future<User> googleLogin({required String idToken});
   Future<void> forgetPassword({required String email});
   Future<void> resetPassword({required String email, required String otp, required String newPassword});
   Future<User> getProfile(String userId);

@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
 abstract class AppColors {
-  static const Color primary = Color(0xFF1B7A3D);
-  static const Color primaryLight = Color(0xFF28A745);
-  static const Color primaryDark = Color(0xFF0E5C28);
+  // ─── Premium Brand Colors ───
+  static const Color primary = Color(0xFF0F6B4A);
+  static const Color primaryLight = Color(0xFF14834F);
+  static const Color primaryDark = Color(0xFF0A4F38);
   static const Color primarySurface = Color(0xFFE8F5E9);
 
-  static const Color secondary = Color(0xFF4CAF50);
-  static const Color secondaryLight = Color(0xFF81C784);
+  static const Color secondary = Color(0xFF1B7A3D);
+  static const Color secondaryLight = Color(0xFF28A745);
 
   static const Color accent = Color(0xFFD4AF37);
-  static const Color accentLight = Color(0xFFE8C84A);
+  static const Color accentLight = Color(0xFFF2D675);
   static const Color accentDark = Color(0xFFB8941F);
 
   static const Color background = Color(0xFFF8FAFC);

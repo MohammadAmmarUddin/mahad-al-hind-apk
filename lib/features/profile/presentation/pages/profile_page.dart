@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/utils/auth_helper.dart';
 import '../../../../shared/providers/core_providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -43,12 +44,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
+    final t = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: Text(t.translate('profile'))),
       body: userAsync.when(
         data: (user) {
-          if (user == null) return const Center(child: Text('Not logged in'));
+          if (user == null) return Center(child: Text(t.translate('loginRequired') ?? 'Not logged in'));
           final level = getAccessLevel(user);
           final isStudent = level == AccessLevel.student;
           final isAdmin = level == AccessLevel.admin;
@@ -89,7 +91,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 Text(email, style: const TextStyle(color: AppColors.textSecondary)),
                 if (user.batch != null && user.batch!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text('Batch: ${user.batch}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text('${t.translate('batch') ?? 'Batch'}: ${user.batch}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                 ],
                 const SizedBox(height: 4),
                 Container(
@@ -99,7 +101,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _roleLabel(user.role ?? 'student'),
+                    _roleLabel(user.role ?? 'student', t),
                     style: TextStyle(
                       color: isAdmin ? AppColors.error : isStudent ? AppColors.primary : AppColors.textSecondary,
                       fontSize: 12,
@@ -109,15 +111,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
                 const SizedBox(height: 20),
                 if (isStudent || isAdmin) ...[
-                  _buildEnrolledCoursesSection(),
+                  _buildEnrolledCoursesSection(t),
                 ],
                 const SizedBox(height: 16),
-                _ProfileMenuTile(icon: Icons.person_outline, title: 'Edit Profile', onTap: () => context.push('/more/profile/edit')),
+                _ProfileMenuTile(icon: Icons.person_outline, title: t.translate('editProfile'), onTap: () => context.push('/more/profile/edit')),
                 if (isAdmin)
-                  _ProfileMenuTile(icon: Icons.admin_panel_settings, title: 'Admin Dashboard', onTap: () => context.push('/more/dashboard'))
+                  _ProfileMenuTile(icon: Icons.admin_panel_settings, title: t.translate('dashboard'), onTap: () => context.push('/more/dashboard'))
                 else if (isStudent)
-                  _ProfileMenuTile(icon: Icons.dashboard_outlined, title: 'My Dashboard', onTap: () => context.push('/more/dashboard')),
-                _ProfileMenuTile(icon: Icons.settings_outlined, title: 'Settings', onTap: () => context.push('/more/settings')),
+                  _ProfileMenuTile(icon: Icons.dashboard_outlined, title: t.translate('dashboard'), onTap: () => context.push('/more/dashboard')),
+                _ProfileMenuTile(icon: Icons.settings_outlined, title: t.translate('settings'), onTap: () => context.push('/more/settings')),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -127,7 +129,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       if (context.mounted) context.go('/login');
                     },
                     icon: const Icon(Icons.logout, color: AppColors.error),
-                    label: const Text('Logout', style: TextStyle(color: AppColors.error)),
+                    label: Text(t.translate('logout'), style: const TextStyle(color: AppColors.error)),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.error),
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -144,11 +146,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  Widget _buildEnrolledCoursesSection() {
+  Widget _buildEnrolledCoursesSection(AppLocalizations t) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('My Courses', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(t.translate('myCourses') ?? 'My Courses', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         if (_loadingCourses)
           const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: AppColors.primary)))
@@ -160,9 +162,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             child: Column(children: [
               Icon(Icons.school_outlined, size: 40, color: AppColors.textHint),
               const SizedBox(height: 8),
-              Text('No courses yet', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              Text(t.translate('noCoursesFound'), style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               const SizedBox(height: 4),
-              Text('Enroll in courses to see them here', style: TextStyle(color: AppColors.textHint, fontSize: 11)),
+              Text(t.translate('enrollNow'), style: TextStyle(color: AppColors.textHint, fontSize: 11)),
             ]),
           )
         else
@@ -212,10 +214,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           Text('$progress%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isComplete ? AppColors.success : AppColors.primary)),
                         ]),
                         if (isComplete)
-                          const Padding(padding: EdgeInsets.only(top: 4), child: Row(children: [
-                            Icon(Icons.check_circle, size: 12, color: AppColors.success),
-                            SizedBox(width: 4),
-                            Text('Completed', style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w600)),
+                          Padding(padding: const EdgeInsets.only(top: 4), child: Row(children: [
+                            const Icon(Icons.check_circle, size: 12, color: AppColors.success),
+                            const SizedBox(width: 4),
+                            Text(t.translate('coursesCompleted'), style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w600)),
                           ])),
                       ],
                     ),
@@ -248,10 +250,10 @@ class _ProfileMenuTile extends StatelessWidget {
   }
 }
 
-String _roleLabel(String role) {
+String _roleLabel(String role, AppLocalizations t) {
   switch (role) {
-    case 'admin': return 'Administrator';
+    case 'admin': return t.translate('dashboard') ?? 'Administrator';
     case 'teacher': return 'Teacher';
-    default: return 'Student';
+    default: return t.translate('students') ?? 'Student';
   }
 }

@@ -82,20 +82,13 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<User> googleLogin({required String email, required String name, String? photoUrl}) async {
+  Future<User> googleLogin({required String idToken}) async {
     try {
       await HiveStorage.clearUser();
-      final result = await _remoteDataSource.googleLogin(email: email, name: name, photoUrl: photoUrl);
+      final result = await _remoteDataSource.googleLogin(idToken: idToken);
       final user = result['user'] as User;
       final token = result['token'] as String?;
       await _saveUserData(user, token);
-      if (user.id.isNotEmpty) {
-        try {
-          final freshProfile = await _remoteDataSource.getProfile(user.id);
-          await _saveUserData(freshProfile, token);
-          return freshProfile;
-        } catch (_) {}
-      }
       return user;
     } catch (e) {
       if (e is ApiException) rethrow;

@@ -7,7 +7,7 @@ import '../models/user_model.dart';
 abstract class AuthRemoteDataSource {
   Future<Map<String, dynamic>> login({required String email, required String password});
   Future<Map<String, dynamic>> signup({required String firstname, required String lastname, required String email, required String phone, required String role, String? password, String? batch});
-  Future<Map<String, dynamic>> googleLogin({required String email, required String name, String? photoUrl});
+  Future<Map<String, dynamic>> googleLogin({required String idToken});
   Future<void> forgetPassword({required String email});
   Future<void> resetPassword({required String email, required String otp, required String newPassword});
   Future<UserModel> getProfile(String userId);
@@ -95,15 +95,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>> googleLogin({required String email, required String name, String? photoUrl}) async {
+  Future<Map<String, dynamic>> googleLogin({required String idToken}) async {
     try {
       final response = await _dioClient.post(
         ApiEndpoints.googleLogin,
-        data: {
-          'email': email,
-          'name': name,
-          if (photoUrl != null) 'photoUrl': photoUrl,
-        },
+        data: {'idToken': idToken},
       );
       final data = _parseResponse(response);
       return {

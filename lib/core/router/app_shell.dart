@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/app_colors.dart';
-import '../../features/notifications/presentation/providers/notification_provider.dart';
+import '../localization/app_localizations.dart';
 import '../../features/feature_management/presentation/providers/feature_provider.dart';
 
 class AppShell extends StatelessWidget {
@@ -12,6 +12,8 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: Consumer(
@@ -32,26 +34,26 @@ class AppShell extends StatelessWidget {
             height: 64,
             elevation: 8,
             destinations: [
-              const NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home, color: AppColors.primary),
-                label: 'Home',
+              NavigationDestination(
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: const Icon(Icons.home, color: AppColors.primary),
+                label: t.translate('nav_home'),
               ),
-              const NavigationDestination(
-                icon: Icon(Icons.school_outlined),
-                selectedIcon: Icon(Icons.school, color: AppColors.primary),
-                label: 'Courses',
+              NavigationDestination(
+                icon: const Icon(Icons.school_outlined),
+                selectedIcon: const Icon(Icons.school, color: AppColors.primary),
+                label: t.translate('nav_courses'),
               ),
               NavigationDestination(
                 icon: const Icon(Icons.headphones_outlined),
                 selectedIcon: const Icon(Icons.headphones, color: AppColors.primary),
-                label: 'Audio',
+                label: t.translate('nav_audio'),
                 enabled: featureFlags.isEnabled('audioLibrary'),
               ),
-              const NavigationDestination(
-                icon: Icon(Icons.menu_outlined),
-                selectedIcon: Icon(Icons.menu, color: AppColors.primary),
-                label: 'More',
+              NavigationDestination(
+                icon: const Icon(Icons.menu_outlined),
+                selectedIcon: const Icon(Icons.menu, color: AppColors.primary),
+                label: t.translate('nav_more'),
               ),
             ],
           );

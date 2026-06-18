@@ -106,7 +106,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                 TextField(controller: imgCtrl, decoration: const InputDecoration(labelText: 'Profile Image URL', prefixIcon: Icon(Icons.image_outlined))),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: role,
+                  initialValue: role,
                   decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.admin_panel_settings_outlined)),
                   items: ['student', 'admin', 'teacher'].map((r) => DropdownMenuItem(
                     value: r,
@@ -130,7 +130,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                   subtitle: Text(isSuspended ? 'User is suspended' : 'User is active'),
                   value: isSuspended,
                   onChanged: (v) => setDialogState(() => isSuspended = v),
-                  activeColor: AppColors.error,
+                  activeThumbColor: AppColors.error,
                   contentPadding: EdgeInsets.zero,
                 ),
               ],

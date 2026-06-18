@@ -13,7 +13,11 @@ final videosRepositoryProvider = Provider<VideosRepositoryImpl>((ref) {
 });
 
 final videosProvider = FutureProvider<List<Video>>((ref) async {
-  return ref.read(videosRepositoryProvider).getVideos();
+  try {
+    return await ref.read(videosRepositoryProvider).getVideos();
+  } catch (_) {
+    return [];
+  }
 });
 
 final currentVideoProvider = StateProvider<Video?>((ref) => null);

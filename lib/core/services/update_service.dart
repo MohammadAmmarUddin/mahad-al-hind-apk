@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../network/dio_client.dart';
 import '../network/api_endpoints.dart';
 import '../models/app_update_config.dart';
@@ -7,13 +7,16 @@ class UpdateService {
   final DioClient _dio;
   UpdateService(this._dio);
 
+  /// Fetches the latest update config from the server.
   Future<AppUpdateConfig?> checkForUpdate() async {
     try {
       final response = await _dio.get(ApiEndpoints.appVersion);
       final data = response.data;
+      // Handle wrapped response: { data: { ... } }
       if (data is Map && data['data'] is Map) {
         return AppUpdateConfig.fromJson(Map<String, dynamic>.from(data['data']));
       }
+      // Handle flat response: { latestVersion: ..., ... }
       if (data is Map && data['latestVersion'] != null) {
         return AppUpdateConfig.fromJson(Map<String, dynamic>.from(data));
       }
@@ -23,6 +26,28 @@ class UpdateService {
     }
   }
 
+  /// Returns the current installed app version string (e.g. "1.0.0").
+  static Future<String> getCurrentVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    return info.version;
+  }
+
+  /// Checks if an update is available (current < latest).
+  static bool isUpdateAvailable(String currentVersion, AppUpdateConfig config) {
+    if (!config.updateEnabled) return false;
+    if (config.latestVersion.isEmpty) return false;
+    return compareVersions(currentVersion, config.latestVersion) < 0;
+  }
+
+  /// Checks if the current version is below the minimum required version.
+  /// If true, the app must be force-updated (user cannot proceed).
+  static bool isBelowMinVersion(String currentVersion, AppUpdateConfig config) {
+    if (config.minVersion.isEmpty) return false;
+    return compareVersions(currentVersion, config.minVersion) < 0;
+  }
+
+  /// Semantic version comparison.
+  /// Returns -1 if current < target, 0 if equal, 1 if current > target.
   static int compareVersions(String current, String target) {
     final cParts = current.split('.').map(int.tryParse).toList();
     final tParts = target.split('.').map(int.tryParse).toList();

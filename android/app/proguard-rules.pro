@@ -26,6 +26,12 @@
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
 
+## Google Sign-In / Identity Services
+-keep class com.google.android.gms.auth.** { *; }
+-keep class com.google.android.gms.common.** { *; }
+-dontwarn com.google.android.gms.auth.**
+-dontwarn com.google.android.gms.common.**
+
 ## Models (keep JSON serializable classes)
 -keep class com.mahad.alhind.features.**.data.models.** { *; }
 -keep class com.mahad.alhind.features.**.domain.entities.** { *; }

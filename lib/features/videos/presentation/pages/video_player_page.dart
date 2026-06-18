@@ -166,14 +166,14 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
-                      child: Text(video!.tag!, style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+                      child: Text(video.tag!, style: const TextStyle(color: AppColors.primary, fontSize: 12)),
                     ),
                   ],
                   const SizedBox(height: 16),
                   if (video?.desc != null && video!.desc!.isNotEmpty) ...[
                     const Divider(color: Colors.white12),
                     const SizedBox(height: 8),
-                    Text(video!.desc!, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5)),
+                    Text(video.desc!, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5)),
                   ],
                   if (_hasError) ...[
                     const SizedBox(height: 24),

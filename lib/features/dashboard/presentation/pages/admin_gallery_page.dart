@@ -175,6 +175,80 @@ class _AdminGalleryPageState extends ConsumerState<AdminGalleryPage> {
     );
   }
 
+  void _showEditDialog(dynamic item) {
+    final titleCtrl = TextEditingController(text: item['title'] ?? '');
+    final descCtrl = TextEditingController(text: item['description'] ?? '');
+    String galleryType = item['galleryType'] ?? 'general';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: AppColors.textHint, borderRadius: BorderRadius.circular(2)))),
+                const Text('Edit Gallery Item', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl: item['imageUrl'] ?? item['url'] ?? '',
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => Container(height: 150, color: AppColors.surfaceVariant, child: const Icon(Icons.broken_image)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: galleryType,
+                  items: ['general', 'student', 'faregin'].map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase(), style: const TextStyle(fontSize: 13)))).toList(),
+                  onChanged: (v) { if (v != null) setSheetState(() => galleryType = v); },
+                  decoration: const InputDecoration(labelText: 'Gallery Type'),
+                ),
+                const SizedBox(height: 8),
+                TextField(controller: titleCtrl, decoration: const InputDecoration(hintText: 'Title (optional)', prefixIcon: Icon(Icons.title, size: 20))),
+                const SizedBox(height: 8),
+                TextField(controller: descCtrl, maxLines: 2, decoration: const InputDecoration(hintText: 'Description (optional)', prefixIcon: Icon(Icons.description_outlined, size: 20))),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await ref.read(dioClientProvider).put('/api/gallery/${item['_id']}', data: {
+                          'title': titleCtrl.text.trim(),
+                          'description': descCtrl.text.trim(),
+                          'galleryType': galleryType,
+                        });
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated!'), backgroundColor: AppColors.success));
+                          _fetchGallery();
+                        }
+                      } catch (e) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                      }
+                    },
+                    icon: const Icon(Icons.save, size: 18),
+                    label: const Text('Save Changes'),
+                    style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteItem(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -197,6 +271,33 @@ class _AdminGalleryPageState extends ConsumerState<AdminGalleryPage> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
     }
+  }
+
+  void _showDeleteOptions(String id) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: const Text('Edit'),
+            onTap: () {
+              Navigator.pop(ctx);
+              final item = _items.firstWhere((i) => i['_id'] == id, orElse: () => null);
+              if (item != null) _showEditDialog(item);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: AppColors.error),
+            title: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            onTap: () {
+              Navigator.pop(ctx);
+              _deleteItem(id);
+            },
+          ),
+        ]),
+      ),
+    );
   }
 
   @override
@@ -234,7 +335,8 @@ class _AdminGalleryPageState extends ConsumerState<AdminGalleryPage> {
                         final type = item['galleryType'] ?? '';
                         final id = item['_id'] ?? '';
                         return GestureDetector(
-                          onLongPress: () => _deleteItem(id.toString()),
+                          onTap: () => _showEditDialog(item),
+                          onLongPress: () => _showDeleteOptions(id.toString()),
                           child: Stack(
                             children: [
                               ClipRRect(
@@ -258,11 +360,11 @@ class _AdminGalleryPageState extends ConsumerState<AdminGalleryPage> {
                               Positioned(
                                 top: 4, right: 4,
                                 child: GestureDetector(
-                                  onTap: () => _deleteItem(id.toString()),
+                                  onTap: () => _showDeleteOptions(id.toString()),
                                   child: Container(
                                     padding: const EdgeInsets.all(3),
                                     decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(12)),
-                                    child: const Icon(Icons.delete_outline, color: Colors.white, size: 14),
+                                    child: const Icon(Icons.more_vert, color: Colors.white, size: 14),
                                   ),
                                 ),
                               ),

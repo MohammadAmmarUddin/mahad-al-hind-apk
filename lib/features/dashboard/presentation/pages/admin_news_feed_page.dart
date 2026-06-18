@@ -78,7 +78,7 @@ class _AdminNewsFeedPageState extends ConsumerState<AdminNewsFeedPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(
                     labelText: 'Type',
                     prefixIcon: Icon(Icons.category, size: 20),
@@ -178,7 +178,7 @@ class _AdminNewsFeedPageState extends ConsumerState<AdminNewsFeedPage> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(
                     labelText: 'Type',
                     prefixIcon: Icon(Icons.category, size: 20),

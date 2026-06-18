@@ -15,14 +15,22 @@ final audioRepositoryProvider = Provider<AudioRepositoryImpl>((ref) {
 });
 
 final audioTracksProvider = FutureProvider<List<AudioTrack>>((ref) async {
-  return ref.read(audioRepositoryProvider).getAllAudio();
+  try {
+    return await ref.read(audioRepositoryProvider).getAllAudio();
+  } catch (_) {
+    return [];
+  }
 });
 
 final audioCategoryProvider = StateProvider<String?>((ref) => null);
 
 final filteredAudioProvider = FutureProvider<List<AudioTrack>>((ref) async {
-  final category = ref.watch(audioCategoryProvider);
-  return ref.read(audioRepositoryProvider).getAllAudio(category: category);
+  try {
+    final category = ref.watch(audioCategoryProvider);
+    return await ref.read(audioRepositoryProvider).getAllAudio(category: category);
+  } catch (_) {
+    return [];
+  }
 });
 
 // Current playing track

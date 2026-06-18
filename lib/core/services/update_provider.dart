@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../network/api_endpoints.dart';
-import '../network/dio_client.dart';
 import '../models/app_update_config.dart';
 import '../services/update_service.dart';
 import '../../shared/providers/core_providers.dart';

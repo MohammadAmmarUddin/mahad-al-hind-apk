@@ -170,7 +170,7 @@ class AudioLibraryPage extends ConsumerWidget {
                 TextField(controller: artistCtrl, decoration: const InputDecoration(hintText: 'Artist / Shayekh', prefixIcon: Icon(Icons.person_outline, size: 20))),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: category,
+                  initialValue: category,
                   items: ['Tilawah', 'Bayan', 'Azaan', 'Nasheed', 'Dars'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                   onChanged: (v) { if (v != null) setSheetState(() => category = v); },
                   decoration: const InputDecoration(hintText: 'Category', prefixIcon: Icon(Icons.category_outlined, size: 20)),

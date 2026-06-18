@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/constants/app_assets.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/localization/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../../main.dart';
@@ -14,9 +16,10 @@ class SettingsPage extends ConsumerWidget {
     final isDark = ref.watch(themeProvider).isDark;
     final currentLocale = ref.watch(localeProvider).locale;
     final userAsync = ref.watch(currentUserProvider);
+    final t = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(t.translate('settings'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -74,37 +77,36 @@ class SettingsPage extends ConsumerWidget {
             error: (_, __) => const SizedBox.shrink(),
           ),
           const SizedBox(height: 20),
-          const _SectionHeader('Account'),
-          _SettingsTile(icon: Icons.person_outline, title: 'Edit Profile', onTap: () => context.push('/more/profile/edit')),
-          _SettingsTile(icon: Icons.lock_outline, title: 'Change Password', onTap: () => _showChangePasswordDialog(context)),
+          _SectionHeader(t.translate('account')),
+          _SettingsTile(icon: Icons.person_outline, title: t.translate('editProfile'), onTap: () => context.push('/more/profile/edit')),
+          _SettingsTile(icon: Icons.lock_outline, title: t.translate('changePassword'), onTap: () => _showChangePasswordDialog(context, t)),
           const SizedBox(height: 16),
-          const _SectionHeader('Appearance'),
+          _SectionHeader(t.translate('darkMode').replaceAll(' (ON)', '').replaceAll(' (OFF)', '')),
           SwitchListTile(
             secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: AppColors.textSecondary),
-            title: Text(isDark ? 'Dark Mode (ON)' : 'Dark Mode (OFF)'),
+            title: Text(isDark ? '${t.translate('darkMode')} (ON)' : '${t.translate('darkMode')} (OFF)'),
             value: isDark,
             onChanged: (_) => ref.read(themeProvider).toggleTheme(),
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           const SizedBox(height: 16),
-          const _SectionHeader('Language'),
+          _SectionHeader(t.translate('language')),
           _SettingsTile(
             icon: Icons.language,
-            title: 'Language',
-            subtitle: currentLocale.languageCode == 'bn' ? 'Bengali' : 'English',
-            onTap: () => _showLanguageDialog(context, ref, currentLocale),
+            title: t.translate('language'),
+            subtitle: currentLocale.languageCode == 'bn' ? 'বাংলা' : 'English',
+            onTap: () => _showLanguageDialog(context, ref, currentLocale, t),
           ),
           const SizedBox(height: 16),
-          const _SectionHeader('Support'),
-          _SettingsTile(icon: Icons.help_outline, title: 'Help & Support', onTap: () {}),
-          _SettingsTile(icon: Icons.privacy_tip_outlined, title: 'Privacy Policy', onTap: () {}),
-          _SettingsTile(icon: Icons.description_outlined, title: 'Terms of Service', onTap: () {}),
-          _SettingsTile(icon: Icons.info_outline, title: 'About', onTap: () => _showAboutDialog(context)),
+          _SectionHeader(t.translate('help')),
+          _SettingsTile(icon: Icons.help_outline, title: t.translate('help'), onTap: () {}),
+          _SettingsTile(icon: Icons.privacy_tip_outlined, title: t.translate('privacy'), onTap: () {}),
+          _SettingsTile(icon: Icons.info_outline, title: t.translate('about'), onTap: () => _showAboutDialog(context, t)),
           const SizedBox(height: 24),
           _SettingsTile(
             icon: Icons.logout,
-            title: 'Logout',
+            title: t.translate('logout'),
             color: AppColors.error,
             onTap: () async {
               await ref.read(authStateProvider.notifier).logout();
@@ -113,18 +115,18 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Center(
-            child: Text('Version 1.0.0', style: TextStyle(color: AppColors.textHint, fontSize: 12)),
+            child: Text('${t.translate('version')} 1.0.0', style: TextStyle(color: AppColors.textHint, fontSize: 12)),
           ),
         ],
       ),
     );
   }
 
-  void _showLanguageDialog(BuildContext context, WidgetRef ref, Locale current) {
+  void _showLanguageDialog(BuildContext context, WidgetRef ref, Locale current, AppLocalizations t) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Select Language'),
+        title: Text(t.translate('language')),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -140,7 +142,7 @@ class SettingsPage extends ConsumerWidget {
               activeColor: AppColors.primary,
             ),
             RadioListTile<String>(
-              title: const Text('Bengali'),
+              title: const Text('বাংলা'),
               value: 'bn',
               groupValue: current.languageCode,
               onChanged: (v) {
@@ -155,7 +157,7 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  void _showChangePasswordDialog(BuildContext context) {
+  void _showChangePasswordDialog(BuildContext context, AppLocalizations t) {
     final currentController = TextEditingController();
     final newController = TextEditingController();
     final confirmController = TextEditingController();
@@ -163,52 +165,58 @@ class SettingsPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Change Password'),
+        title: Text(t.translate('changePassword')),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: currentController, obscureText: true, decoration: const InputDecoration(hintText: 'Current Password')),
+              TextField(controller: currentController, obscureText: true, decoration: InputDecoration(hintText: t.translate('currentPassword'))),
               const SizedBox(height: 12),
-              TextField(controller: newController, obscureText: true, decoration: const InputDecoration(hintText: 'New Password')),
+              TextField(controller: newController, obscureText: true, decoration: InputDecoration(hintText: t.translate('newPasswordLabel'))),
               const SizedBox(height: 12),
-              TextField(controller: confirmController, obscureText: true, decoration: const InputDecoration(hintText: 'Confirm Password')),
+              TextField(controller: confirmController, obscureText: true, decoration: InputDecoration(hintText: t.translate('confirmPassword'))),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(t.translate('cancel'))),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Password changed successfully!')),
+                SnackBar(content: Text(t.translate('save'))),
               );
             },
-            child: const Text('Change'),
+            child: Text(t.translate('save')),
           ),
         ],
       ),
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
+  void _showAboutDialog(BuildContext context, AppLocalizations t) {
     showAboutDialog(
       context: context,
       applicationName: "Ma'hadul Qiraat Al Hind",
       applicationVersion: '1.0.0',
-      applicationIcon: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(12),
+      applicationIcon: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.asset(
+          AppAssets.logo,
+          width: 48,
+          height: 48,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(gradient: AppColors.primaryGradient, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.mosque, color: Colors.white, size: 28),
+          ),
         ),
-        child: const Icon(Icons.mosque, color: Colors.white, size: 28),
       ),
       children: [
-        const Text('A comprehensive Islamic educational ecosystem.'),
+        Text(t.translate('app_tagline')),
       ],
     );
   }

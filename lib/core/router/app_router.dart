@@ -48,7 +48,7 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/',
+    initialLocation: '/splash',
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -74,7 +74,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(path: 'videos', builder: (_, __) => const VideosPage()),
                   GoRoute(path: 'videos/player', builder: (_, __) => const VideoPlayerPage()),
                   GoRoute(path: 'gallery', builder: (_, __) => const GalleryPage()),
-                  GoRoute(path: 'gallery/:id', builder: (_, s) => GalleryDetailPage(galleryId: s.pathParameters['id'] ?? '')),
+                  GoRoute(path: 'gallery/:id', builder: (_, s) {
+                    final item = s.extra as Map<String, dynamic>?;
+                    return GalleryDetailPage(galleryId: s.pathParameters['id'] ?? '', item: item);
+                  }),
                   GoRoute(path: 'shayekh', builder: (_, __) => const ShayekhPage()),
                   GoRoute(path: 'shayekh/:id', builder: (_, s) => ShayekhDetailPage(shayekhId: s.pathParameters['id'] ?? '')),
                   GoRoute(path: 'attendance', builder: (_, __) => const AttendancePage()),
@@ -112,6 +115,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/forgot-password', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const ForgotPasswordPage()),
       GoRoute(path: '/course/:id', parentNavigatorKey: _rootNavigatorKey, builder: (_, s) => CourseDetailPage(courseId: s.pathParameters['id'] ?? '')),
       GoRoute(path: '/audio/player', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AudioPlayerPage()),
+      GoRoute(
+        path: '/verify-certificate',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) => CertificateVerifyPage(
+          certificateId: state.uri.queryParameters['id'] ?? '',
+        ),
+      ),
     ],
     redirect: (context, state) {
       final isOnLogin = state.matchedLocation == '/login';

@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -201,9 +199,9 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
                   };
                   try {
                     if (isEdit) {
-                      await ref.read(dioClientProvider).patch('/api/course/${course['_id']}', data: payload);
+                      await ref.read(dioClientProvider).patch('/api/course/updateCourse/${course['_id']}', data: payload);
                     } else {
-                      await ref.read(dioClientProvider).post('/api/course', data: payload);
+                      await ref.read(dioClientProvider).post('/api/course/createCourse', data: payload);
                     }
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -364,7 +362,7 @@ class _AdminCoursesPageState extends ConsumerState<AdminCoursesPage> {
     );
     if (confirmed != true) return;
     try {
-      await ref.read(dioClientProvider).delete('/api/course/$id');
+      await ref.read(dioClientProvider).delete('/api/course/deleteCourse/$id');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Course deleted'), backgroundColor: AppColors.success));
         _fetchCourses();

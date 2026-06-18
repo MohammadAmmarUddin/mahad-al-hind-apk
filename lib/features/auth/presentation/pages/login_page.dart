@@ -52,8 +52,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _handleGoogleLogin() async {
     try {
-      await ref.read(authStateProvider.notifier).googleLogin();
-      if (mounted) {
+      final success = await ref.read(authStateProvider.notifier).googleLogin();
+      if (success && mounted) {
         context.go('/');
       }
     } catch (e) {
@@ -85,16 +85,37 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 // Logo
                 Center(
                   child: Container(
-                    width: 80,
-                    height: 80,
+                    width: 120,
+                    height: 120,
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(AppDimens.radiusLg),
-                    ),
-                    child: const Icon(
-                      Icons.mosque,
+                      shape: BoxShape.circle,
                       color: Colors.white,
-                      size: 48,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.2),
+                          blurRadius: 30,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        AppAssets.logo,
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.mosque,
+                            color: Colors.white,
+                            size: 48,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -240,6 +261,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                // Return to Home
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => context.go('/'),
+                    icon: const Icon(Icons.arrow_back, size: 18),
+                    label: const Text('Return to Home'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                    ),
+                  ),
                 ),
               ],
             ),

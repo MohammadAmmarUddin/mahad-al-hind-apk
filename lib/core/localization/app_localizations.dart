@@ -238,6 +238,12 @@ class AppLocalizations {
     'aiAssistant': 'AI Assistant',
     'askAnything': 'Ask anything about the institute...',
     'aiNotAvailable': 'AI Assistant coming soon!',
+
+    // Extra
+    'myCourses': 'My Courses',
+    'batch': 'Batch',
+    'loginRequired': 'Please login first',
+    'enrollmentOpen': 'Enrollment Open',
   };
 
   // ==================== Bengali Strings ====================
@@ -455,6 +461,12 @@ class AppLocalizations {
     'aiAssistant': 'এআই সহকারী',
     'askAnything': 'প্রতিষ্ঠান সম্পর্কে যেকোনো কিছু জিজ্ঞাসা করুন...',
     'aiNotAvailable': 'এআই সহকারী শীঘ্রই আসছে!',
+
+    // Extra
+    'myCourses': 'আমার কোর্স',
+    'batch': 'ব্যাচ',
+    'loginRequired': 'প্রথমে লগইন করুন',
+    'enrollmentOpen': 'ভর্তি চলছে',
   };
 }
 

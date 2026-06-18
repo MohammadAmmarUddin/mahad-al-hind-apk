@@ -1,11 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/domain/entities/user.dart';
@@ -294,7 +292,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
                 _buildPriceSection(course, finalPrice, avgRating, user),
                 _buildTabBar(),
                 _activeTab == 0 ? _buildOverviewTab(course) : _activeTab == 1 ? _buildCurriculumTab(course, 1, false) : _buildReviewsTab(course),
-                const SizedBox(height: 100),
+                const SizedBox(height: 120),
               ],
             ),
           ),
@@ -620,14 +618,18 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
                       final globalIdx = sIdx * 5 + vIdx;
                       final v = section[vIdx];
                       final locked = isEnrolled && globalIdx >= unlockedVideos;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.textHint.withOpacity(0.1)))),
-                        child: Row(children: [
-                          Icon(locked ? Icons.lock_outline : Icons.play_circle_outline, size: 16, color: locked ? AppColors.textHint : AppColors.primary),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(v['videoTitle'] ?? 'Lesson ${globalIdx + 1}', style: TextStyle(fontSize: 12, color: locked ? AppColors.textHint : AppColors.textPrimary))),
-                        ]),
+                      final isYoutube = _normalizeYoutube(v['videoLink']) != null;
+                      return GestureDetector(
+                        onTap: locked ? null : () => _showVideoModal(v, isYoutube),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.textHint.withOpacity(0.1)))),
+                          child: Row(children: [
+                            Icon(locked ? Icons.lock_outline : Icons.play_circle_outline, size: 16, color: locked ? AppColors.textHint : AppColors.primary),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(v['videoTitle'] ?? 'Lesson ${globalIdx + 1}', style: TextStyle(fontSize: 12, color: locked ? AppColors.textHint : AppColors.textPrimary, decoration: locked ? null : TextDecoration.underline))),
+                          ]),
+                        ),
                       );
                     }),
                 ],
@@ -692,40 +694,143 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
     return _QuizWidget(course: course, userId: user?.id ?? '');
   }
 
-  // ─── VIDEO PLAYER ───────────────────────────────────────────
+  // ─── VIDEO PLAYER (Tappable Thumbnail) ──────────────────────
   Widget _buildVideoPlayer(dynamic video, bool isYoutube) {
     final url = video['videoLink'] ?? '';
     if (isYoutube) {
       final id = _extractYoutubeId(url);
       if (id == null) return const SizedBox(height: 200, child: Center(child: Text('Invalid video URL')));
-      final html = '''
-        <!DOCTYPE html>
-        <html><head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-        iframe{width:100%;height:100%;border:none;position:absolute;top:0;left:0;}</style>
-        </head><body>
-        <iframe src="https://www.youtube.com/embed/$id?autoplay=0&rel=0&modestbranding=1&playsinline=1&fs=1&cc_load_policy=0&iv_load_policy=3" 
-          allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" 
-          allowfullscreen></iframe>
-        </body></html>''';
-      return AspectRatio(
-        aspectRatio: 16 / 9,
-        child: WebViewWidget(controller: WebViewController()
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          ..setNavigationDelegate(NavigationDelegate(
-            onNavigationRequest: (req) {
-              final u = req.url;
-              if (u.contains('youtube.com/embed') || u.contains('youtube.com') && u.contains('js/CSS') || u.startsWith('data:')) return NavigationDecision.navigate;
-              return NavigationDecision.prevent;
-            },
-          ))
-          ..loadHtmlString(html)),
+      return GestureDetector(
+        onTap: () => _showVideoModal(video, true),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Image.network(
+                'https://img.youtube.com/vi/$id/maxresdefault.jpg',
+                fit: BoxFit.cover,
+                width: double.infinity,
+                errorBuilder: (_, __, ___) => Container(
+                  color: Colors.black,
+                  child: const Icon(Icons.play_circle_outline, color: Colors.white54, size: 64),
+                ),
+              ),
+              Container(color: Colors.black26),
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), shape: BoxShape.circle),
+                child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+              ),
+            ],
+          ),
+        ),
       );
     }
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: VideoPlayerWidget(url: url),
+    return GestureDetector(
+      onTap: () => _showVideoModal(video, false),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Container(
+          color: Colors.black,
+          child: const Center(child: Icon(Icons.play_circle_outline, size: 64, color: Colors.white54)),
+        ),
+      ),
+    );
+  }
+
+  // ─── VIDEO MODAL (Full-screen direct play) ──────────────────
+  void _showVideoModal(dynamic video, bool isYoutube) {
+    final url = video['videoLink'] ?? '';
+    final title = video['videoTitle'] ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      shape: const RoundedRectangleBorder(),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            if (isYoutube) {
+              final id = _extractYoutubeId(url);
+              if (id == null) {
+                return SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  child: const Center(child: Text('Invalid video URL', style: TextStyle(color: Colors.white))),
+                );
+              }
+              final html = '''
+                <!DOCTYPE html>
+                <html><head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+                iframe{width:100%;height:100%;border:none;position:absolute;top:0;left:0;}</style>
+                </head><body>
+                <iframe src="https://www.youtube.com/embed/$id?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=1&cc_load_policy=0&iv_load_policy=3" 
+                  allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" 
+                  allowfullscreen></iframe>
+                </body></html>''';
+              return SizedBox(
+                height: MediaQuery.of(context).size.height,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: WebViewWidget(controller: WebViewController()
+                        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                        ..setNavigationDelegate(NavigationDelegate(
+                          onNavigationRequest: (req) {
+                            final u = req.url;
+                            if (u.contains('youtube.com/embed') || u.contains('youtube.com') && u.contains('js/CSS') || u.startsWith('data:')) return NavigationDecision.navigate;
+                            return NavigationDecision.prevent;
+                          },
+                        ))
+                        ..loadHtmlString(html)),
+                    ),
+                    Positioned(
+                      top: MediaQuery.of(context).padding.top + 8,
+                      left: 8,
+                      child: SafeArea(
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ),
+                    ),
+                    if (title.isNotEmpty)
+                      Positioned(
+                        top: MediaQuery.of(context).padding.top + 8,
+                        left: 56,
+                        right: 56,
+                        child: SafeArea(
+                          child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }
+            return SizedBox(
+              height: MediaQuery.of(context).size.height,
+              child: Stack(
+                children: [
+                  const Center(child: CircularProgressIndicator(color: Colors.white)),
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 8,
+                    child: SafeArea(
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -749,23 +854,22 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
   Widget _buildEnrollBottomBar(dynamic course, double finalPrice, User? user, bool isEnrolled) {
     final price = int.tryParse(course.price ?? '0') ?? 0;
     final isFree = price == 0;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPadding),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -3))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 16, offset: const Offset(0, -4))],
       ),
-      child: SafeArea(
-        top: false,
-        child: isEnrolled
+      child: isEnrolled
             ? Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                 child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.hourglass_top, size: 16, color: AppColors.warning),
+                  Icon(Icons.hourglass_top, size: 18, color: AppColors.warning),
                   SizedBox(width: 8),
-                  Text('Enrollment pending approval', style: TextStyle(fontSize: 13, color: AppColors.warning, fontWeight: FontWeight.w600)),
+                  Text('Enrollment pending approval', style: TextStyle(fontSize: 14, color: AppColors.warning, fontWeight: FontWeight.w600)),
                 ]),
               )
             : Column(
@@ -773,23 +877,24 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
                 children: [
                   SizedBox(
                     width: double.infinity,
-                    height: 50,
+                    height: 54,
                     child: ElevatedButton(
                       onPressed: () => _enroll(course, finalPrice, user),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 4,
+                        shadowColor: AppColors.primary.withOpacity(0.4),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.school, color: Colors.white, size: 20),
-                          const SizedBox(width: 8),
+                          const Icon(Icons.school, color: Colors.white, size: 22),
+                          const SizedBox(width: 10),
                           Flexible(
                             child: Text(
                               isFree ? 'Enroll Now (Free)' : 'Enroll Now — \u20B9${finalPrice.round()}',
-                              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -800,7 +905,6 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
                   ),
                 ],
               ),
-      ),
     );
   }
 

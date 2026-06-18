@@ -166,7 +166,7 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     value: _forceUpdate,
-                    activeColor: AppColors.error,
+                    activeThumbColor: AppColors.error,
                     onChanged: (v) => setState(() => _forceUpdate = v),
                   ),
                   SwitchListTile(
@@ -177,7 +177,7 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                       style: const TextStyle(fontSize: 12),
                     ),
                     value: _updateEnabled,
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                     onChanged: (v) => setState(() => _updateEnabled = v),
                   ),
                   const SizedBox(height: 16),

@@ -1,0 +1,9 @@
+{
+  "name": "mahad-al-hind-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vercel API backend for Mahad Al Hind App Update System",
+  "dependencies": {
+    "@vercel/kv": "^2.0.0"
+  }
+}

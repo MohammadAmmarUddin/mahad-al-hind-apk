@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mahad Al Hind — App Update Control</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #0E5C28;
+      --primary-dark: #0A3D1F;
+      --primary-light: #1B7A3D;
+      --gold: #D4AF37;
+      --gold-light: #E8C84A;
+      --bg: #F0F4F1;
+      --card: #FFFFFF;
+      --text: #1A1A2E;
+      --text-secondary: #6B7280;
+      --border: #E5E7EB;
+      --error: #DC2626;
+      --success: #16A34A;
+      --radius: 16px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary), var(--primary-light));
+      padding: 24px 0;
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: rgba(212,175,55,0.08);
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -60%;
+      left: -10%;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+    .header-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 20px;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .header p { font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+
+    /* Auth Screen */
+    .auth-screen {
+      max-width: 420px;
+      margin: 80px auto;
+      padding: 0 20px;
+    }
+    .auth-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .auth-card h2 { font-size: 20px; margin-bottom: 8px; }
+    .auth-card p { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+    .auth-card input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+    .auth-card input:focus { border-color: var(--gold); }
+    .auth-card button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      background: var(--gold);
+      color: var(--primary-dark);
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .auth-card button:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(212,175,55,0.3); }
+    .auth-card button:active { transform: translateY(0); }
+    .auth-error { color: var(--error); font-size: 13px; margin-top: 12px; display: none; }
+
+    /* Main Content */
+    .main { max-width: 640px; margin: 0 auto; padding: 24px 20px 80px; }
+
+    /* Status Card */
+    .status-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.active { background: var(--success); box-shadow: 0 0 8px rgba(22,163,74,0.4); }
+    .status-dot.disabled { background: var(--error); }
+    .status-info h3 { font-size: 14px; font-weight: 600; }
+    .status-info p { font-size: 12px; color: var(--text-secondary); }
+
+    /* Form Card */
+    .form-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .form-card-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .form-card-header .icon-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(212,175,55,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .form-card-header h2 { font-size: 16px; font-weight: 700; }
+    .form-card-header p { font-size: 12px; color: var(--text-secondary); }
+
+    .form-body { padding: 24px; }
+
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .field label .required { color: var(--error); }
+    .field .hint {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .field input, .field textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+      background: #FAFBFC;
+    }
+    .field input:focus, .field textarea:focus {
+      border-color: var(--gold);
+      background: white;
+    }
+    .field textarea { resize: vertical; min-height: 100px; line-height: 1.5; }
+
+    /* Toggle */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-top: 1px solid var(--border);
+    }
+    .toggle-row:first-child { border-top: none; }
+    .toggle-label h4 { font-size: 14px; font-weight: 600; }
+    .toggle-label p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .slider {
+      position: absolute;
+      inset: 0;
+      background: #D1D5DB;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.25s;
+    }
+    .toggle .slider::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.25s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    }
+    .toggle input:checked + .slider { background: var(--primary); }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+    .toggle.force input:checked + .slider { background: var(--error); }
+
+    /* Save Button */
+    .save-section { padding: 0 24px 24px; }
+    .save-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      color: var(--primary-dark);
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .save-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(212,175,55,0.35); }
+    .save-btn:active { transform: translateY(0); }
+    .save-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+    .save-btn .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid transparent;
+      border-top-color: var(--primary-dark);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+    .save-btn.loading .spinner { display: block; }
+    .save-btn.loading .btn-text { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      padding: 14px 24px;
+      border-radius: 12px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--error); }
+
+    /* Info Row */
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      font-size: 13px;
+    }
+    .info-row + .info-row { border-top: 1px solid var(--border); }
+    .info-label { color: var(--text-secondary); }
+    .info-value { font-weight: 600; }
+    .info-value.version { color: var(--primary); }
+    .info-value.time { color: var(--text-secondary); font-weight: 400; font-size: 12px; }
+
+    /* Logout */
+    .logout-btn {
+      position: fixed;
+      top: 16px;
+      right: 20px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 10;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,0.25); }
+
+    /* Loading State */
+    .loading-screen {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+      .header-inner { flex-direction: column; text-align: center; }
+      .main { padding: 16px 12px 60px; }
+      .form-body { padding: 16px; }
+      .save-section { padding: 0 16px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Auth Screen -->
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div style="font-size:40px; margin-bottom:16px;">🕌</div>
+      <h2>App Update Control</h2>
+      <p>Enter your admin key to manage app updates</p>
+      <input type="password" id="authKey" placeholder="Admin Key" autocomplete="off" />
+      <button onclick="authenticate()">Sign In</button>
+      <div id="authError" class="auth-error"></div>
+    </div>
+  </div>
+
+  <!-- Main App (hidden until auth) -->
+  <div id="mainApp" style="display:none;">
+    <div class="header">
+      <button class="logout-btn" onclick="logout()">Sign Out</button>
+      <div class="header-inner">
+        <div class="header-icon">🕌</div>
+        <div>
+          <h1>App Update Control</h1>
+          <p>Manage version, APK link & release notes</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- Status -->
+      <div class="status-card" id="statusCard">
+        <div class="status-dot active" id="statusDot"></div>
+        <div class="status-info">
+          <h3 id="statusTitle">Update Check Active</h3>
+          <p id="statusSubtitle">Users will be notified of new versions</p>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <div class="icon-box">🚀</div>
+          <div>
+            <h2>Publish App Update</h2>
+            <p>Set version, paste APK link, and write release notes</p>
+          </div>
+        </div>
+
+        <div class="form-body">
+          <div class="field">
+            <label>Latest Version <span class="required">*</span></label>
+            <input type="text" id="latestVersion" placeholder="e.g. 1.2.0" />
+            <div class="hint">Semantic version format: major.minor.patch</div>
+          </div>
+
+          <div class="field">
+            <label>Minimum Version</label>
+            <input type="text" id="minVersion" placeholder="e.g. 1.0.0 (defaults to latest)" />
+            <div class="hint">Users below this version will be forced to update</div>
+          </div>
+
+          <div class="field">
+            <label>APK Download URL <span class="required">*</span></label>
+            <input type="url" id="apkUrl" placeholder="https://github.com/.../releases/download/v1.2.0/app-release.apk" />
+            <div class="hint">Paste your GitHub Release APK link here</div>
+          </div>
+
+          <div class="field">
+            <label>Release Notes</label>
+            <textarea id="releaseNotes" placeholder="Write each change on a new line:&#10;- Improved performance&#10;- Fixed login issue&#10;- New course feature"></textarea>
+            <div class="hint">One change per line. Each line becomes a bullet point in the app.</div>
+          </div>
+
+          <div>
+            <div class="toggle-row">
+              <div class="toggle-label">
+                <h4>Force Update</h4>
+                <p>Block app usage until user updates</p>
+              </div>
+              <label class="toggle force">
+                <input type="checkbox" id="forceUpdate" />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-label">
+                <h4>Update Enabled</h4>
+                <p>Active: users will see update prompts</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="updateEnabled" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-section">
+          <button class="save-btn" id="saveBtn" onclick="saveConfig()">
+            <span class="btn-text">💾 Save & Publish Update</span>
+            <span class="spinner"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Current Info -->
+      <div class="form-card" style="margin-top:20px;">
+        <div class="form-card-header">
+          <div class="icon-box">📊</div>
+          <div>
+            <h2>Current Configuration</h2>
+            <p>What users currently see</p>
+          </div>
+        </div>
+        <div style="padding: 16px 24px 20px;" id="currentInfo">
+          <div class="loading-screen" style="padding:20px 0;">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let ADMIN_KEY = '';
+
+    // --- Auth ---
+    function authenticate() {
+      const key = document.getElementById('authKey').value.trim();
+      if (!key) {
+        showAuthError('Please enter the admin key');
+        return;
+      }
+      ADMIN_KEY = key;
+      localStorage.setItem('mahad_admin_key', key);
+      loadConfig();
+    }
+
+    function logout() {
+      localStorage.removeItem('mahad_admin_key');
+      ADMIN_KEY = '';
+      document.getElementById('mainApp').style.display = 'none';
+      document.getElementById('authScreen').style.display = 'block';
+      document.getElementById('authKey').value = '';
+    }
+
+    function showAuthError(msg) {
+      const el = document.getElementById('authError');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    // --- API ---
+    async function apiCall(method, path, body) {
+      const opts = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Key': ADMIN_KEY,
+        },
+      };
+      if (body) opts.body = JSON.stringify(body);
+
+      const res = await fetch(`${API_BASE}${path}`, opts);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      return data;
+    }
+
+    // --- Load Config ---
+    async function loadConfig() {
+      try {
+        const result = await apiCall('GET', '/api/admin/app-update');
+        const config = result.data || {};
+
+        document.getElementById('latestVersion').value = config.latestVersion || '';
+        document.getElementById('minVersion').value = config.minVersion || '';
+        document.getElementById('apkUrl').value = config.apkUrl || '';
+        document.getElementById('releaseNotes').value = config.releaseNotes || '';
+        document.getElementById('forceUpdate').checked = !!config.forceUpdate;
+        document.getElementById('updateEnabled').checked = config.updateEnabled !== false;
+
+        updateStatus(config);
+        updateInfoCard(config);
+
+        // Show main app
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+      } catch (e) {
+        if (e.message.includes('Unauthorized') || e.message.includes('401')) {
+          showAuthError('Invalid admin key');
+          localStorage.removeItem('mahad_admin_key');
+        } else {
+          showAuthError('Failed to connect: ' + e.message);
+        }
+      }
+    }
+
+    // --- Save Config ---
+    async function saveConfig() {
+      const btn = document.getElementById('saveBtn');
+      const latestVersion = document.getElementById('latestVersion').value.trim();
+      const apkUrl = document.getElementById('apkUrl').value.trim();
+
+      if (!latestVersion) {
+        showToast('Please enter a version number', 'error');
+        document.getElementById('latestVersion').focus();
+        return;
+      }
+      if (!apkUrl) {
+        showToast('Please paste the APK download URL', 'error');
+        document.getElementById('apkUrl').focus();
+        return;
+      }
+
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      try {
+        const payload = {
+          latestVersion,
+          minVersion: document.getElementById('minVersion').value.trim() || latestVersion,
+          apkUrl,
+          releaseNotes: document.getElementById('releaseNotes').value.trim(),
+          forceUpdate: document.getElementById('forceUpdate').checked,
+          updateEnabled: document.getElementById('updateEnabled').checked,
+        };
+
+        const result = await apiCall('PATCH', '/api/admin/app-update', payload);
+        const config = result.data || {};
+
+        updateStatus(config);
+        updateInfoCard(config);
+        showToast('✅ Update published successfully!', 'success');
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    // --- UI Helpers ---
+    function updateStatus(config) {
+      const dot = document.getElementById('statusDot');
+      const title = document.getElementById('statusTitle');
+      const sub = document.getElementById('statusSubtitle');
+
+      if (config.updateEnabled) {
+        dot.className = 'status-dot active';
+        title.textContent = 'Update Check Active';
+        sub.textContent = config.forceUpdate
+          ? `Forced update to v${config.latestVersion || '?'}`
+          : `Users will see updates for v${config.latestVersion || '?'}`;
+      } else {
+        dot.className = 'status-dot disabled';
+        title.textContent = 'Update Check Disabled';
+        sub.textContent = 'Users will not see update prompts';
+      }
+    }
+
+    function updateInfoCard(config) {
+      const el = document.getElementById('currentInfo');
+      if (!config.latestVersion) {
+        el.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding:8px 0;">No configuration set yet</div>';
+        return;
+      }
+
+      const updated = config.updatedAt
+        ? new Date(config.updatedAt).toLocaleString()
+        : 'Never';
+
+      el.innerHTML = `
+        <div class="info-row">
+          <span class="info-label">Published Version</span>
+          <span class="info-value version">v${config.latestVersion}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Min Version</span>
+          <span class="info-value">v${config.minVersion || config.latestVersion}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Force Update</span>
+          <span class="info-value">${config.forceUpdate ? '⚠️ Yes' : 'No'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Status</span>
+          <span class="info-value" style="color:${config.updateEnabled ? 'var(--success)' : 'var(--error)'}">
+            ${config.updateEnabled ? '✅ Active' : '⛔ Disabled'}
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Last Updated</span>
+          <span class="info-value time">${updated}</span>
+        </div>
+        ${config.apkUrl ? `
+        <div class="info-row">
+          <span class="info-label">APK URL</span>
+          <span class="info-value time" style="max-width:200px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${config.apkUrl}">${config.apkUrl}</span>
+        </div>` : ''}
+      `;
+    }
+
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => { toast.className = 'toast'; }, 3000);
+    }
+
+    // --- Enter key support ---
+    document.getElementById('authKey').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') authenticate();
+    });
+
+    // --- Init ---
+    (function init() {
+      const savedKey = localStorage.getItem('mahad_admin_key');
+      if (savedKey) {
+        ADMIN_KEY = savedKey;
+        document.getElementById('authKey').value = savedKey;
+        loadConfig();
+      }
+    })();
+  </script>
+</body>
+</html>

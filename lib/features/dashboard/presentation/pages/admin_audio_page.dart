@@ -102,7 +102,7 @@ class _AdminAudioPageState extends ConsumerState<AdminAudioPage> {
                 TextField(controller: artistCtrl, decoration: const InputDecoration(hintText: 'Artist / Shayekh')),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: category,
+                  initialValue: category,
                   items: ['Tilawah', 'Bayan', 'Azaan', 'Nasheed', 'Dars'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                   onChanged: (v) { if (v != null) setDialogState(() => category = v); },
                   decoration: const InputDecoration(hintText: 'Category'),

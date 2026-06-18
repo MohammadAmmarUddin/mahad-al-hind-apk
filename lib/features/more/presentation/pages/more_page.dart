@@ -74,6 +74,7 @@ class MorePage extends ConsumerWidget {
                 _MoreItem(icon: Icons.play_circle_outline, title: 'Video Gallery', subtitle: 'Watch Islamic lectures', onTap: () => context.push('/more/videos')),
                 _MoreItem(icon: Icons.photo_library_outlined, title: 'Gallery', subtitle: 'Photos from events', onTap: () => context.push('/more/gallery')),
                 _MoreItem(icon: Icons.notifications_outlined, title: 'Notifications', subtitle: 'Stay updated', onTap: () => context.push('/more/notifications')),
+                _MoreItem(icon: Icons.verified_outlined, title: 'Certificate Checker', subtitle: 'Verify any certificate by ID', onTap: () => _showCertificateChecker(context)),
               ]),
               const SizedBox(height: 16),
               _buildSection(context, 'My Account', [
@@ -115,6 +116,46 @@ class MorePage extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => const Center(child: Text('Error')),
+      ),
+    );
+  }
+
+  void _showCertificateChecker(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.verified, color: AppColors.primary, size: 24),
+            SizedBox(width: 8),
+            Text('Check Certificate'),
+          ],
+        ),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: 'Enter Certificate ID',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              final id = controller.text.trim();
+              if (id.isNotEmpty) {
+                context.push('/verify-certificate?id=$id');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            child: const Text('Verify'),
+          ),
+        ],
       ),
     );
   }

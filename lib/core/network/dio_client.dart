@@ -1,13 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_endpoints.dart';
-import 'api_exception.dart';
 
 class DioClient {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
 
   static String? _cachedToken;
+  static Future<void>? _tokenLoadFuture;
 
   DioClient({Dio? dio, FlutterSecureStorage? secureStorage})
       : _dio = dio ?? Dio(),
@@ -23,11 +23,18 @@ class DioClient {
     );
     _dio.interceptors.add(AuthInterceptor());
     _dio.interceptors.add(LoggingInterceptor());
-    _loadToken();
+    _tokenLoadFuture = _loadToken();
   }
 
   Future<void> _loadToken() async {
     _cachedToken = await _secureStorage.read(key: 'access_token');
+  }
+
+  Future<void> ensureTokenLoaded() async {
+    if (_tokenLoadFuture != null) {
+      await _tokenLoadFuture;
+      _tokenLoadFuture = null;
+    }
   }
 
   static void setToken(String? token) {

@@ -41,44 +41,64 @@ class _AdminNotificationsPageState extends ConsumerState<AdminNotificationsPage>
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Create Notification'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: type,
-                items: ['general', 'enrollment_request', 'enrollment_approved', 'course_completed', 'payment_received', 'new_signup']
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(fontSize: 12))))
-                    .toList(),
-                onChanged: (v) { if (v != null) type = v; },
-                decoration: const InputDecoration(labelText: 'Type'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: role,
-                items: ['all', 'admin', 'student'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
-                onChanged: (v) { if (v != null) role = v; },
-                decoration: const InputDecoration(labelText: 'Target Role'),
-              ),
-              const SizedBox(height: 8),
-              TextField(controller: msgCtrl, maxLines: 3, decoration: const InputDecoration(hintText: 'Message')),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Create Notification'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: type,
+                  items: ['general', 'enrollment_request', 'enrollment_approved', 'course_completed', 'payment_received', 'new_signup']
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(fontSize: 12))))
+                      .toList(),
+                  onChanged: (v) { if (v != null) setDialogState(() => type = v); },
+                  decoration: const InputDecoration(labelText: 'Type'),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: role,
+                  items: ['all', 'admin', 'student'].map((r) => DropdownMenuItem(value: r, child: Text(r.toUpperCase()))).toList(),
+                  onChanged: (v) { if (v != null) setDialogState(() => role = v); },
+                  decoration: const InputDecoration(labelText: 'Target Role'),
+                ),
+                const SizedBox(height: 8),
+                TextField(controller: msgCtrl, maxLines: 3, decoration: const InputDecoration(hintText: 'Message')),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+            onPressed: () async {
+              if (msgCtrl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Message is required'), backgroundColor: AppColors.error));
+                return;
+              }
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification created (admin only)')));
+              try {
+                await ref.read(dioClientProvider).post('/api/notifications/create', data: {
+                  'type': type,
+                  'role': role,
+                  'message': msgCtrl.text.trim(),
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification sent!'), backgroundColor: AppColors.success));
+                  _fetchNotifications();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                }
+              }
             },
             child: const Text('Send'),
           ),
         ],
       ),
+    ),
     );
   }
 

@@ -32,7 +32,7 @@ class AudioCategoryTabs extends ConsumerWidget {
           final isSelected = selected == cat['value'];
           return GestureDetector(
             onTap: () => ref.read(audioCategoryProvider.notifier).state =
-                cat['value'] as String?,
+                cat['value'],
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
