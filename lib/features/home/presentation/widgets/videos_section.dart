@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/youtube_utils.dart';
 import '../../../../core/widgets/section_header.dart';
+import '../../../videos/presentation/providers/videos_provider.dart';
+import '../../../videos/presentation/pages/video_player_page.dart';
 
 class VideosSection extends StatelessWidget {
   final List<dynamic> videos;
@@ -22,7 +25,7 @@ class VideosSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 170,
+          height: 180,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -42,25 +45,31 @@ class _VideoCard extends StatelessWidget {
   final dynamic video;
   const _VideoCard({required this.video});
 
-  String? _extractYoutubeId(String? url) {
-    if (url == null || url.isEmpty) return null;
-    final regExp = RegExp(r'(?:youtube\.com/embed/|youtu\.be/)([a-zA-Z0-9_-]+)');
-    final match = regExp.firstMatch(url);
-    return match?.group(1);
-  }
-
   @override
   Widget build(BuildContext context) {
     final title = video['title'] ?? 'Video';
     final tag = video['tag'] ?? '';
     final embedUrl = video['embedUrl'] ?? '';
-    final videoId = _extractYoutubeId(embedUrl);
-    final thumbnailUrl = videoId != null ? 'https://img.youtube.com/vi/$videoId/mqdefault.jpg' : null;
+    final thumbnailUrl = YouTubeUtils.getThumbnail(embedUrl);
 
     return GestureDetector(
-      onTap: () => context.push('/more/videos/player', extra: embedUrl),
+      onTap: () {
+        Navigator.of(context).push(
+          PageRouteBuilder(
+            opaque: false,
+            pageBuilder: (_, __, ___) => VideoPlayerPage(
+              embedUrl: embedUrl,
+              title: title.toString(),
+              tag: tag.toString().isNotEmpty ? tag.toString() : null,
+            ),
+            transitionsBuilder: (_, anim, __, child) {
+              return FadeTransition(opacity: anim, child: child);
+            },
+          ),
+        );
+      },
       child: Container(
-        width: 210,
+        width: 220,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -73,7 +82,7 @@ class _VideoCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 95,
+              height: 100,
               width: double.infinity,
               decoration: const BoxDecoration(
                 color: AppColors.darkSurface,
@@ -88,7 +97,7 @@ class _VideoCard extends StatelessWidget {
                       child: CachedNetworkImage(
                         imageUrl: thumbnailUrl,
                         width: double.infinity,
-                        height: 95,
+                        height: 100,
                         fit: BoxFit.cover,
                         placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
                         errorWidget: (_, __, ___) => const Center(child: Icon(Icons.play_circle, color: Colors.white, size: 36)),
@@ -97,19 +106,19 @@ class _VideoCard extends StatelessWidget {
                   else
                     const Center(child: Icon(Icons.play_circle, color: Colors.white, size: 40)),
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.85),
                       shape: BoxShape.circle,
                       boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8)],
                     ),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
                   ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -104,7 +104,10 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
         final videos = course.videos;
 
         if (isEnrolled && paymentComplete) {
-          return _buildEnrolledView(course, user, videos, unlockedVideos, isCourseComplete, isQuizComplete, isAdmin, avgRating);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) context.push('/course/${widget.courseId}/learn');
+          });
+          return _buildVisitorView(course, user, finalPrice, avgRating, isEnrolled);
         }
         return _buildVisitorView(course, user, finalPrice, avgRating, isEnrolled);
       },

@@ -10,6 +10,7 @@ import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/courses/presentation/pages/courses_page.dart';
 import '../../features/courses/presentation/pages/course_detail_page.dart';
+import '../../features/courses/presentation/pages/course_learning_page.dart';
 import '../../features/audio_library/presentation/pages/audio_library_page.dart';
 import '../../features/audio_library/presentation/pages/audio_player_page.dart';
 import '../../features/audio_library/presentation/pages/audio_category_detail_page.dart';
@@ -115,6 +116,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/signup', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const SignupPage()),
       GoRoute(path: '/forgot-password', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const ForgotPasswordPage()),
       GoRoute(path: '/course/:id', parentNavigatorKey: _rootNavigatorKey, builder: (_, s) => CourseDetailPage(courseId: s.pathParameters['id'] ?? '')),
+      GoRoute(path: '/course/:id/learn', parentNavigatorKey: _rootNavigatorKey, builder: (_, s) => CourseLearningPage(courseId: s.pathParameters['id'] ?? '')),
       GoRoute(path: '/audio/player', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AudioPlayerPage()),
       GoRoute(path: '/audio/category/:id', parentNavigatorKey: _rootNavigatorKey, builder: (_, s) => AudioCategoryDetailPage(categoryId: s.pathParameters['id'] ?? '')),
       GoRoute(
