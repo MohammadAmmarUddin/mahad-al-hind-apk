@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/youtube_utils.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../providers/courses_provider.dart';
@@ -31,6 +32,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
   List<bool> _sectionExpanded = [true];
   WebViewController? _videoController;
   bool _videoLoading = false;
+  bool _hasRedirected = false;
 
   String? _normalizeYoutube(String? url) {
     if (url == null || url.isEmpty) return null;
@@ -71,6 +73,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
     setState(() { _videoLoading = true; });
     _videoController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (_) { if (mounted) setState(() { _videoLoading = false; }); },
       ))
@@ -103,11 +106,15 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
         final avgRating = _avgRating(course);
         final videos = course.videos;
 
-        if (isEnrolled && paymentComplete) {
+        if (isEnrolled && paymentComplete && !_hasRedirected) {
+          _hasRedirected = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) context.push('/course/${widget.courseId}/learn');
+            if (mounted) context.pushReplacement('/course/${widget.courseId}/learn');
           });
-          return _buildVisitorView(course, user, finalPrice, avgRating, isEnrolled);
+          return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
+        }
+        if (_hasRedirected) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppColors.primary)));
         }
         return _buildVisitorView(course, user, finalPrice, avgRating, isEnrolled);
       },
@@ -383,6 +390,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
             setState(() { _videoLoading = true; });
             _videoController = WebViewController()
               ..setJavaScriptMode(JavaScriptMode.unrestricted)
+              ..setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
               ..setNavigationDelegate(NavigationDelegate(
                 onPageFinished: (_) { if (mounted) setState(() { _videoLoading = false; }); },
               ))
@@ -766,6 +774,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
           Positioned.fill(
             child: WebViewWidget(controller: WebViewController()
               ..setJavaScriptMode(JavaScriptMode.unrestricted)
+              ..setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
               ..setNavigationDelegate(NavigationDelegate(
                 onNavigationRequest: (req) => NavigationDecision.navigate,
               ))
@@ -781,120 +790,104 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
     final url = video['videoLink'] ?? '';
     final title = video['videoTitle'] ?? '';
 
+    if (isYoutube) {
+      final id = _extractYoutubeId(url);
+      if (id == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid video URL'), backgroundColor: AppColors.error),
+        );
+        return;
+      }
+      final html = '''
+        <!DOCTYPE html>
+        <html><head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0F172A;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+        iframe{width:100%;height:100%;border:none;position:absolute;top:0;left:0;}</style>
+        </head><body>
+        <iframe src="https://www.youtube.com/embed/$id?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
+          allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share"
+          allowfullscreen></iframe>
+        </body></html>''';
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => Scaffold(
+            backgroundColor: const Color(0xFF0F172A),
+            appBar: AppBar(
+              backgroundColor: const Color(0xFF0F172A),
+              leading: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            body: WebViewWidget(controller: WebViewController()
+              ..setJavaScriptMode(JavaScriptMode.unrestricted)
+              ..setUserAgent(YouTubeUtils.webUserAgent)
+              ..setBackgroundColor(const Color(0xFF0F172A))
+              ..setNavigationDelegate(NavigationDelegate(
+                onNavigationRequest: (req) {
+                  final u = req.url;
+                  if (u.contains('youtube.com/embed') || u.startsWith('data:')) return NavigationDecision.navigate;
+                  return NavigationDecision.prevent;
+                },
+              ))
+              ..loadHtmlString(html)),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Non-YouTube: use WebView
+    final videoHtml = '''
+      <!DOCTYPE html>
+      <html><head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+      video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
+      </head><body>
+      <video src="$url" controls autoplay playsinline></video>
+      </body></html>''';
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.black,
       shape: const RoundedRectangleBorder(),
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            if (isYoutube) {
-              final id = _extractYoutubeId(url);
-              if (id == null) {
-                return SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.5,
-                  child: const Center(child: Text('Invalid video URL', style: TextStyle(color: Colors.white))),
-                );
-              }
-              final html = '''
-                <!DOCTYPE html>
-                <html><head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-                iframe{width:100%;height:100%;border:none;position:absolute;top:0;left:0;}</style>
-                </head><body>
-                <iframe src="https://www.youtube.com/embed/$id?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=1&cc_load_policy=0&iv_load_policy=3" 
-                  allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" 
-                  allowfullscreen></iframe>
-                </body></html>''';
-              return SizedBox(
-                height: MediaQuery.of(context).size.height,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: WebViewWidget(controller: WebViewController()
-                        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                        ..setNavigationDelegate(NavigationDelegate(
-                          onNavigationRequest: (req) {
-                            final u = req.url;
-                            if (u.contains('youtube.com/embed') || u.contains('youtube.com') && u.contains('js/CSS') || u.startsWith('data:')) return NavigationDecision.navigate;
-                            return NavigationDecision.prevent;
-                          },
-                        ))
-                        ..loadHtmlString(html)),
-                    ),
-                    Positioned(
-                      top: MediaQuery.of(context).padding.top + 8,
-                      left: 8,
-                      child: SafeArea(
-                        child: IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
-                      ),
-                    ),
-                    if (title.isNotEmpty)
-                      Positioned(
-                        top: MediaQuery.of(context).padding.top + 8,
-                        left: 56,
-                        right: 56,
-                        child: SafeArea(
-                          child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            }
-            final videoHtml = '''
-              <!DOCTYPE html>
-              <html><head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-              <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-              video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
-              </head><body>
-              <video src="$url" controls autoplay playsinline></video>
-              </body></html>''';
-            return SizedBox(
-              height: MediaQuery.of(context).size.height,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: WebViewWidget(controller: WebViewController()
-                      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                      ..setNavigationDelegate(NavigationDelegate(
-                        onNavigationRequest: (req) {
-                          final u = req.url;
-                          if (u.startsWith('data:') || u.contains('blob:')) return NavigationDecision.navigate;
-                          return NavigationDecision.navigate;
-                        },
-                      ))
-                      ..loadHtmlString(videoHtml)),
-                  ),
-                  Positioned(
-                    top: MediaQuery.of(context).padding.top + 8,
-                    left: 8,
-                    child: SafeArea(
-                      child: IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ),
-                  ),
-                  if (title.isNotEmpty)
-                    Positioned(
-                      top: MediaQuery.of(context).padding.top + 8,
-                      left: 56,
-                      right: 56,
-                      child: SafeArea(
-                        child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                    ),
-                ],
+        return SizedBox(
+          height: MediaQuery.of(context).size.height,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: WebViewWidget(controller: WebViewController()
+                  ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                  ..setUserAgent(YouTubeUtils.webUserAgent)
+                  ..setBackgroundColor(const Color(0xFF0F172A))
+                  ..loadHtmlString(videoHtml)),
               ),
-            );
-          },
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 8,
+                child: SafeArea(
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ),
+              ),
+              if (title.isNotEmpty)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 56,
+                  right: 56,
+                  child: SafeArea(
+                    child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );

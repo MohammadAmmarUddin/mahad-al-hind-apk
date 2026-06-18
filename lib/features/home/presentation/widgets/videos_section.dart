@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/youtube_utils.dart';
 import '../../../../core/widgets/section_header.dart';
-import '../../../videos/presentation/providers/videos_provider.dart';
-import '../../../videos/presentation/pages/video_player_page.dart';
 
 class VideosSection extends StatelessWidget {
   final List<dynamic> videos;
@@ -55,16 +54,12 @@ class _VideoCard extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
-          PageRouteBuilder(
-            opaque: false,
-            pageBuilder: (_, __, ___) => VideoPlayerPage(
-              embedUrl: embedUrl,
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => _YouTubePlayerPage(
+              videoUrl: embedUrl.toString(),
               title: title.toString(),
-              tag: tag.toString().isNotEmpty ? tag.toString() : null,
             ),
-            transitionsBuilder: (_, anim, __, child) {
-              return FadeTransition(opacity: anim, child: child);
-            },
           ),
         );
       },
@@ -75,7 +70,10 @@ class _VideoCard extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
-            BoxShadow(color: AppColors.primary.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3)),
+            BoxShadow(
+                color: AppColors.primary.withOpacity(0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 3)),
           ],
         ),
         child: Column(
@@ -93,26 +91,38 @@ class _VideoCard extends StatelessWidget {
                 children: [
                   if (thumbnailUrl != null)
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(14)),
                       child: CachedNetworkImage(
                         imageUrl: thumbnailUrl,
                         width: double.infinity,
                         height: 100,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                        errorWidget: (_, __, ___) => const Center(child: Icon(Icons.play_circle, color: Colors.white, size: 36)),
+                        placeholder: (_, __) => const Center(
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white)),
+                        errorWidget: (_, __, ___) => const Center(
+                            child: Icon(Icons.play_circle,
+                                color: Colors.white, size: 36)),
                       ),
                     )
                   else
-                    const Center(child: Icon(Icons.play_circle, color: Colors.white, size: 40)),
+                    const Center(
+                        child: Icon(Icons.play_circle,
+                            color: Colors.white, size: 40)),
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withOpacity(0.85),
                       shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 8)],
+                      boxShadow: [
+                        BoxShadow(
+                            color: AppColors.primary.withOpacity(0.3),
+                            blurRadius: 8)
+                      ],
                     ),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
+                    child: const Icon(Icons.play_arrow_rounded,
+                        color: Colors.white, size: 24),
                   ),
                 ],
               ),
@@ -126,19 +136,26 @@ class _VideoCard extends StatelessWidget {
                     title.toString(),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary),
                   ),
                   if (tag.toString().isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.accent.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         tag,
-                        style: const TextStyle(fontSize: 9, color: AppColors.accentDark, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 9,
+                            color: AppColors.accentDark,
+                            fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -147,6 +164,132 @@ class _VideoCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _YouTubePlayerPage extends StatefulWidget {
+  final String videoUrl;
+  final String title;
+  const _YouTubePlayerPage({required this.videoUrl, required this.title});
+
+  @override
+  State<_YouTubePlayerPage> createState() => _YouTubePlayerPageState();
+}
+
+class _YouTubePlayerPageState extends State<_YouTubePlayerPage> {
+  WebViewController? _controller;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  void _initPlayer() {
+    final id = YouTubeUtils.extractId(widget.videoUrl);
+    if (id == null || id.isEmpty) {
+      setState(() { _hasError = true; _isLoading = false; });
+      return;
+    }
+
+    final html = '''
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <style>
+          * { margin: 0; padding: 0; }
+          html, body { width: 100%; height: 100%; background: #0F172A; overflow: hidden; }
+          iframe { width: 100%; height: 100%; border: none; }
+        </style>
+      </head>
+      <body>
+        <iframe src="https://www.youtube.com/embed/$id?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </body>
+      </html>
+    ''';
+
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent(YouTubeUtils.webUserAgent)
+      ..setBackgroundColor(const Color(0xFF0F172A))
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageFinished: (_) {
+          if (mounted) setState(() => _isLoading = false);
+        },
+        onWebResourceError: (_) {
+          if (mounted) setState(() { _isLoading = false; _hasError = true; });
+        },
+      ))
+      ..loadHtmlString(html);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F172A),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.title,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ColoredBox(
+              color: const Color(0xFF0F172A),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_controller != null)
+                    Positioned.fill(
+                        child: WebViewWidget(controller: _controller!)),
+                  if (_isLoading)
+                    const Positioned.fill(
+                      child: ColoredBox(
+                        color: Colors.black26,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primary, strokeWidth: 2.5),
+                        ),
+                      ),
+                    ),
+                  if (_hasError)
+                    const Positioned.fill(
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline_rounded,
+                                color: Colors.white38, size: 48),
+                            SizedBox(height: 12),
+                            Text('Unable to load video',
+                                style: TextStyle(
+                                    color: Colors.white38, fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
