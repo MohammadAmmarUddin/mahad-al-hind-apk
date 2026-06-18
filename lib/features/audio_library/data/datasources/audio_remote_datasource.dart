@@ -1,70 +1,77 @@
-import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../domain/entities/audio_track.dart';
+import '../../domain/entities/audio_category.dart';
 
-abstract class AudioRemoteDataSource {
-  Future<List<AudioTrack>> getAllAudio({String? category, int page = 1});
-}
+class AudioRemoteDataSource {
+  final DioClient _dio;
+  AudioRemoteDataSource(this._dio);
 
-class AudioRemoteDataSourceImpl implements AudioRemoteDataSource {
-  final DioClient _dioClient;
-  AudioRemoteDataSourceImpl({required DioClient dioClient})
-      : _dioClient = dioClient;
+  Future<List<AudioCategory>> getCategories({String? type, String? parentId}) async {
+    final params = <String, String>{};
+    if (type != null) params['type'] = type;
+    if (parentId != null) params['parentId'] = parentId;
 
-  @override
-  Future<List<AudioTrack>> getAllAudio({String? category, int page = 1}) async {
-    try {
-      final response = await _dioClient.get(ApiEndpoints.gallery);
-      final rawData = response.data;
-
-      List<dynamic> items = [];
-      if (rawData is List) {
-        items = rawData;
-      } else if (rawData is Map && rawData['data'] is List) {
-        items = rawData['data'] as List;
-      }
-
-      final audioTracks = items
-          .where((item) {
-            final type = (item['type'] ?? item['resourceType'] ?? '').toString().toLowerCase();
-            return type == 'audio' || type == 'mp3' || type == 'wav' || type == 'ogg';
-          })
-          .map((item) => AudioTrack(
-                id: item['_id']?.toString() ?? item['id']?.toString() ?? '',
-                title: item['title']?.toString() ?? item['description']?.toString() ?? 'Untitled',
-                artist: item['description']?.toString(),
-                shayekhName: item['title']?.toString(),
-                url: item['url']?.toString() ?? '',
-                coverUrl: item['url']?.toString(),
-                category: _mapCategory(item['title']?.toString() ?? item['description']?.toString()),
-                duration: null,
-                isFavorite: false,
-                playCount: 0,
-                createdAt: item['createdAt']?.toString(),
-              ))
-          .toList();
-
-      if (category != null && category.isNotEmpty) {
-        return audioTracks.where((t) => t.category?.toLowerCase() == category.toLowerCase()).toList();
-      }
-
-      return audioTracks;
-    } on DioException catch (_) {
-      return [];
-    } catch (_) {
-      return [];
+    final res = await _dio.get(ApiEndpoints.audioCategories, queryParameters: params);
+    final data = res.data;
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List).map((e) => AudioCategory.fromJson(e)).toList();
     }
+    return [];
   }
 
-  String _mapCategory(String? title) {
-    if (title == null) return 'Other';
-    final lower = title.toLowerCase();
-    if (lower.contains('surah') || lower.contains('quran') || lower.contains('tilawah') || lower.contains('recit')) return 'Tilawah';
-    if (lower.contains('azaan') || lower.contains('adhan') || lower.contains('prayer')) return 'Azaan';
-    if (lower.contains('bayan') || lower.contains('lecture') || lower.contains('tafsir')) return 'Bayan';
-    if (lower.contains('nasheed') || lower.contains('song')) return 'Nasheed';
-    if (lower.contains('dars') || lower.contains('class')) return 'Dars';
-    return 'Other';
+  Future<AudioCategory> getCategoryById(String id) async {
+    final res = await _dio.get(ApiEndpoints.audioCategory(id));
+    final data = res.data;
+    if (data is Map && data['data'] is Map) {
+      return AudioCategory.fromJson(data['data']);
+    }
+    throw Exception('Category not found');
+  }
+
+  Future<List<AudioTrack>> getAudios({String? categoryId, String? search, String? reciter, String? sort, int limit = 50, int skip = 0}) async {
+    final params = <String, dynamic>{
+      'limit': limit.toString(),
+      'skip': skip.toString(),
+    };
+    if (categoryId != null) params['categoryId'] = categoryId;
+    if (search != null) params['search'] = search;
+    if (reciter != null) params['reciter'] = reciter;
+    if (sort != null) params['sort'] = sort;
+
+    final res = await _dio.get(ApiEndpoints.audios, queryParameters: params);
+    final data = res.data;
+    if (data is Map && data['data'] is List) {
+      return (data['data'] as List).map((e) => AudioTrack.fromJson(e)).toList();
+    }
+    return [];
+  }
+
+  Future<void> incrementPlayCount(String id) async {
+    await _dio.patch(ApiEndpoints.audioPlay(id));
+  }
+
+  Future<void> createCategory(Map<String, dynamic> data) async {
+    await _dio.post(ApiEndpoints.audioCategories, data: data);
+  }
+
+  Future<void> createAudio(Map<String, dynamic> data) async {
+    await _dio.post(ApiEndpoints.audios, data: data);
+  }
+
+  Future<void> updateAudio(String id, Map<String, dynamic> data) async {
+    await _dio.put(ApiEndpoints.audioItem(id), data: data);
+  }
+
+  Future<void> deleteAudio(String id) async {
+    await _dio.delete(ApiEndpoints.audioItem(id));
+  }
+
+  Future<void> updateCategory(String id, Map<String, dynamic> data) async {
+    await _dio.put(ApiEndpoints.audioCategory(id), data: data);
+  }
+
+  Future<void> deleteCategory(String id) async {
+    await _dio.delete(ApiEndpoints.audioCategory(id));
   }
 }

@@ -67,6 +67,14 @@ abstract class ApiEndpoints {
   static const String galleryUpload = '/api/gallery/upload';
   static String galleryItem(String id) => '/api/gallery/$id';
   
+  // Audio Library
+  static const String audioCategories = '/api/audio/categories';
+  static String audioCategory(String id) => '/api/audio/categories/$id';
+  static const String audios = '/api/audio';
+  static String audioItem(String id) => '/api/audio/$id';
+  static String audioPlay(String id) => '/api/audio/$id/play';
+  static const String audioBulkReorder = '/api/audio/bulk-reorder';
+
   // Media
   static const String mediaPublic = '/api/media/public';
   static const String mediaAdmin = '/api/media/admin';

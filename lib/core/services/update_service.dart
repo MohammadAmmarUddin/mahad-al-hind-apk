@@ -71,21 +71,6 @@ class UpdateService {
     return version;
   }
 
-  /// Detects if this is a post-update launch.
-  /// Returns true if the current installed version differs from the last recorded version.
-  Future<bool> isPostUpdateLaunch() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastInstalled = prefs.getString(_lastInstalledVersionKey) ?? '';
-    final currentVersion = await getCurrentVersion();
-
-    // If we have a stored version and it's different from current, this is post-update
-    if (lastInstalled.isNotEmpty && lastInstalled != currentVersion) {
-      return true;
-    }
-    // If no stored version at all, this is first install (not post-update)
-    return false;
-  }
-
   /// Records the current version as installed and clears all update state.
   /// Called after detecting a successful update.
   static Future<void> recordUpdateCompleted() async {
@@ -149,39 +134,8 @@ class UpdateService {
     return prefs.getString(_lastNotifiedVersionKey) == version;
   }
 
-  /// Records the current installed version without clearing flags.
-  /// Used on every normal launch to track what version is running.
-  Future<void> recordCurrentVersion(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastInstalledVersionKey, version);
-  }
-
-  /// Records that the user dismissed (not updated) a specific version.
-  Future<void> recordDismissedVersion(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastDismissedVersionKey, version);
-  }
-
-  /// Returns the version the user last dismissed.
-  Future<String?> getLastDismissedVersion() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_lastDismissedVersionKey);
-  }
-
-  /// Records that we notified the user about a specific version.
-  Future<void> recordNotifiedVersion(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastNotifiedVersionKey, version);
-  }
-
-  /// Checks if we already notified the user about this exact version.
-  Future<bool> alreadyNotifiedVersion(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_lastNotifiedVersionKey) == version;
-  }
-
   /// Gets the timestamp when the last update was completed.
-  Future<DateTime?> getUpdateCompletedAt() async {
+  static Future<DateTime?> getUpdateCompletedAt() async {
     final prefs = await SharedPreferences.getInstance();
     final ts = prefs.getInt(_updateCompletedAtKey);
     if (ts == null) return null;
@@ -189,7 +143,7 @@ class UpdateService {
   }
 
   /// Clears the last installed version record (for testing/reset).
-  Future<void> clearInstalledVersion() async {
+  static Future<void> clearInstalledVersion() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_lastInstalledVersionKey);
     await prefs.remove(_updateCompletedAtKey);

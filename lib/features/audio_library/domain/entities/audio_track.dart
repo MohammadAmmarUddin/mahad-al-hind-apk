@@ -1,49 +1,70 @@
 class AudioTrack {
   final String id;
-  final String? title;
-  final String? artist;
-  final String? shayekhName;
-  final String? shayekhId;
-  final String? url;
-  final String? coverUrl;
-  final String? category;
-  final Duration? duration;
-  final bool isFavorite;
-  final bool isDownloaded;
-  final int? playCount;
+  final String title;
+  final String description;
+  final String audioUrl;
+  final String thumbnail;
+  final String categoryId;
+  final int duration;
+  final String reciter;
+  final int order;
+  final int playCount;
+  final bool isVisible;
   final String? createdAt;
 
   const AudioTrack({
     required this.id,
-    this.title,
-    this.artist,
-    this.shayekhName,
-    this.shayekhId,
-    this.url,
-    this.coverUrl,
-    this.category,
-    this.duration,
-    this.isFavorite = false,
-    this.isDownloaded = false,
-    this.playCount,
+    required this.title,
+    this.description = '',
+    required this.audioUrl,
+    this.thumbnail = '',
+    required this.categoryId,
+    this.duration = 0,
+    this.reciter = '',
+    this.order = 0,
+    this.playCount = 0,
+    this.isVisible = true,
     this.createdAt,
   });
 
   factory AudioTrack.fromJson(Map<String, dynamic> json) {
     return AudioTrack(
-      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
-      title: json['title'] as String?,
-      artist: json['artist'] as String?,
-      shayekhName: json['shayekhName'] as String?,
-      shayekhId: json['shayekhId'] as String?,
-      url: json['url'] as String?,
-      coverUrl: json['coverUrl'] as String?,
-      category: json['category'] as String?,
-      duration: json['duration'] != null ? Duration(seconds: json['duration'] as int) : null,
-      isFavorite: json['isFavorite'] as bool? ?? false,
-      isDownloaded: json['isDownloaded'] as bool? ?? false,
-      playCount: json['playCount'] as int?,
-      createdAt: json['createdAt'] as String?,
+      id: json['_id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      audioUrl: json['audioUrl']?.toString() ?? '',
+      thumbnail: json['thumbnail']?.toString() ?? '',
+      categoryId: json['categoryId']?.toString() ?? '',
+      duration: json['duration'] ?? 0,
+      reciter: json['reciter']?.toString() ?? '',
+      order: json['order'] ?? 0,
+      playCount: json['playCount'] ?? 0,
+      isVisible: json['isVisible'] ?? true,
+      createdAt: json['createdAt']?.toString(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'title': title,
+      'description': description,
+      'audioUrl': audioUrl,
+      'thumbnail': thumbnail,
+      'categoryId': categoryId,
+      'duration': duration,
+      'reciter': reciter,
+      'order': order,
+      'playCount': playCount,
+      'isVisible': isVisible,
+      'createdAt': createdAt,
+    };
+  }
+
+  String get formattedDuration {
+    if (duration <= 0) return '0:00';
+    final m = duration ~/ 60;
+    final s = duration % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }

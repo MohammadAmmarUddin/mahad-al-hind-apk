@@ -65,14 +65,14 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
     });
   }
 
-  /// Instant toggle save — only sends toggle fields, no validation on version/apkUrl
+  /// Instant toggle save — uses the main PATCH endpoint which accepts partial updates
   Future<void> _saveToggles({String? field}) async {
     setState(() => _saving = true);
     try {
       final dio = ref.read(dioClientProvider);
       await dio.ensureTokenLoaded();
       await dio.patch(
-        '${ApiEndpoints.adminAppUpdate}/toggles',
+        ApiEndpoints.adminAppUpdate,
         data: {
           'forceUpdate': _forceUpdate,
           'updateEnabled': _updateEnabled,

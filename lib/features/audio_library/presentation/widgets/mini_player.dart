@@ -9,100 +9,88 @@ class MiniPlayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentTrack = ref.watch(currentTrackProvider);
+    final track = ref.watch(currentTrackProvider);
     final isPlaying = ref.watch(isPlayingProvider);
 
-    if (currentTrack == null) return const SizedBox.shrink();
+    if (track == null) return const SizedBox.shrink();
 
     return GestureDetector(
       onTap: () => context.push('/audio/player'),
       child: Container(
         height: 64,
-        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: AppColors.surface,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, -2))],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // Progress bar
+            Consumer(
+              builder: (ctx, ref, _) {
+                final pos = ref.watch(audioPositionProvider);
+                final dur = ref.watch(audioDurationProvider);
+                final progress = dur.inMilliseconds > 0 ? pos.inMilliseconds / dur.inMilliseconds : 0.0;
+                return LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  minHeight: 2,
+                  backgroundColor: AppColors.surfaceVariant,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                );
+              },
+            ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    // Track Info
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            currentTrack.title ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            currentTrack.shayekhName ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [AppColors.primary, AppColors.primary.withOpacity(0.7)]),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    // Controls
-                    IconButton(
-                      icon: const Icon(
-                        Icons.skip_previous,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      onPressed: () {},
+                    child: const Icon(Icons.music_note, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(track.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(track.reciter.isNotEmpty ? track.reciter : 'Unknown', style: const TextStyle(fontSize: 10, color: AppColors.textSecondary), maxLines: 1),
+                      ],
                     ),
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                        onPressed: () {
-                          ref.read(isPlayingProvider.notifier).state =
-                              !isPlaying;
-                        },
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.skip_next,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_previous_rounded, size: 22),
+                    onPressed: () {
+                      final player = ref.read(audioPlayerServiceProvider);
+                      player.seekToPrevious();
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 28),
+                    onPressed: () {
+                      final player = ref.read(audioPlayerServiceProvider);
+                      final playing = ref.read(isPlayingProvider);
+                      if (playing) {
+                        player.pause();
+                        ref.read(isPlayingProvider.notifier).state = false;
+                      } else {
+                        player.resume();
+                        ref.read(isPlayingProvider.notifier).state = true;
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next_rounded, size: 22),
+                    onPressed: () {
+                      final player = ref.read(audioPlayerServiceProvider);
+                      player.seekToNext();
+                    },
+                  ),
+                ],
               ),
             ),
           ],

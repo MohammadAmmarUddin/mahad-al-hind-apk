@@ -64,16 +64,16 @@ class _SplashPageState extends ConsumerState<SplashPage>
       final currentVersion = await UpdateService.getCurrentVersion();
 
       // ─── STEP 1: Detect post-update launch ───
-      final isPostUpdate = await updateService.isPostUpdateLaunch();
+      final isPostUpdate = await UpdateService.isPostUpdateLaunch();
       if (isPostUpdate) {
         // User just installed an update — record completion, skip all popups
-        await updateService.recordUpdateCompleted();
+        await UpdateService.recordUpdateCompleted();
         print('[Splash] Post-update launch detected for v$currentVersion — skipping popup');
         return true;
       }
 
       // ─── STEP 2: Always record current installed version ───
-      await updateService.recordCurrentVersion(currentVersion);
+      await UpdateService.recordCurrentVersion(currentVersion);
 
       // ─── STEP 3: Smart check interval (don't spam API on rapid restarts) ───
       final shouldCheck = await updateService.shouldCheckForUpdate();
@@ -93,7 +93,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
       }
 
       // ─── STEP 6: Check if user already dismissed this exact version ───
-      final lastDismissed = await updateService.getLastDismissedVersion();
+      final lastDismissed = await UpdateService.getLastDismissedVersion();
       if (lastDismissed == config.latestVersion) {
         // User already dismissed this version — don't nag them again
         // But still check if it's a force update (force overrides dismiss)
@@ -128,7 +128,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
         bool dismissed = false;
         await UpdateDialog.show(context, effectiveConfig, onLater: () {
           dismissed = true;
-          updateService.recordDismissedVersion(config.latestVersion);
+          UpdateService.recordDismissedVersion(config.latestVersion);
         });
         return dismissed;
       }
@@ -163,7 +163,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
 
       if (!stillNeedsUpdate) {
         // User successfully updated — record it
-        await ref.read(updateServiceProvider).recordUpdateCompleted();
+        await UpdateService.recordUpdateCompleted();
         return;
       }
     }
