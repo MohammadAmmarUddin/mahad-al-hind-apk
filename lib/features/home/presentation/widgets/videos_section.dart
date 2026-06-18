@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/youtube_utils.dart';
+import '../../../../core/widgets/youtube_player_widget.dart';
 import '../../../../core/widgets/section_header.dart';
 
 class VideosSection extends StatelessWidget {
@@ -49,14 +48,14 @@ class _VideoCard extends StatelessWidget {
     final title = video['title'] ?? 'Video';
     final tag = video['tag'] ?? '';
     final embedUrl = video['embedUrl'] ?? '';
-    final thumbnailUrl = YouTubeUtils.getThumbnail(embedUrl);
+    final thumbnailUrl = getYoutubeThumbnail(embedUrl);
 
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
             fullscreenDialog: true,
-            builder: (_) => _YouTubePlayerPage(
+            builder: (_) => _VideoPlayerModal(
               videoUrl: embedUrl.toString(),
               title: title.toString(),
             ),
@@ -169,67 +168,18 @@ class _VideoCard extends StatelessWidget {
   }
 }
 
-class _YouTubePlayerPage extends StatefulWidget {
+/// Full-screen YouTube player modal using official youtube_player_flutter.
+/// No WebView iframe — uses YouTube IFrame Player API.
+class _VideoPlayerModal extends StatefulWidget {
   final String videoUrl;
   final String title;
-  const _YouTubePlayerPage({required this.videoUrl, required this.title});
+  const _VideoPlayerModal({required this.videoUrl, required this.title});
 
   @override
-  State<_YouTubePlayerPage> createState() => _YouTubePlayerPageState();
+  State<_VideoPlayerModal> createState() => _VideoPlayerModalState();
 }
 
-class _YouTubePlayerPageState extends State<_YouTubePlayerPage> {
-  WebViewController? _controller;
-  bool _isLoading = true;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initPlayer();
-  }
-
-  void _initPlayer() {
-    final id = YouTubeUtils.extractId(widget.videoUrl);
-    if (id == null || id.isEmpty) {
-      setState(() { _hasError = true; _isLoading = false; });
-      return;
-    }
-
-    final html = '''
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>
-          * { margin: 0; padding: 0; }
-          html, body { width: 100%; height: 100%; background: #0F172A; overflow: hidden; }
-          iframe { width: 100%; height: 100%; border: none; }
-        </style>
-      </head>
-      <body>
-        <iframe src="https://www.youtube.com/embed/$id?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen></iframe>
-      </body>
-      </html>
-    ''';
-
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(YouTubeUtils.webUserAgent)
-      ..setBackgroundColor(const Color(0xFF0F172A))
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) {
-          if (mounted) setState(() => _isLoading = false);
-        },
-        onWebResourceError: (_) {
-          if (mounted) setState(() { _isLoading = false; _hasError = true; });
-        },
-      ))
-      ..loadHtmlString(html);
-  }
-
+class _VideoPlayerModalState extends State<_VideoPlayerModal> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -249,45 +199,9 @@ class _YouTubePlayerPageState extends State<_YouTubePlayerPage> {
       ),
       body: Column(
         children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: ColoredBox(
-              color: const Color(0xFF0F172A),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_controller != null)
-                    Positioned.fill(
-                        child: WebViewWidget(controller: _controller!)),
-                  if (_isLoading)
-                    const Positioned.fill(
-                      child: ColoredBox(
-                        color: Colors.black26,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                              color: AppColors.primary, strokeWidth: 2.5),
-                        ),
-                      ),
-                    ),
-                  if (_hasError)
-                    const Positioned.fill(
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.error_outline_rounded,
-                                color: Colors.white38, size: 48),
-                            SizedBox(height: 12),
-                            Text('Unable to load video',
-                                style: TextStyle(
-                                    color: Colors.white38, fontSize: 14)),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          YoutubePlayerWidget(
+            videoUrl: widget.videoUrl,
+            autoPlay: true,
           ),
         ],
       ),

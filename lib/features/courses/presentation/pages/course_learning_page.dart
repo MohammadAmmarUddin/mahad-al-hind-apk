@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/youtube_utils.dart';
+import '../../../../core/widgets/youtube_player_widget.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../shared/providers/core_providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -1275,146 +1275,48 @@ class _CourseLearningPageState extends ConsumerState<CourseLearningPage>
 }
 
 // ─── VIDEO PLAYER WIDGET (isolated to prevent parent rebuilds) ──────
-class _VideoPlayerWidget extends StatefulWidget {
+class _VideoPlayerWidget extends StatelessWidget {
   final String url;
   const _VideoPlayerWidget({required this.url, super.key});
 
   @override
-  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
-}
-
-class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
-  WebViewController? _controller;
-  bool _loading = true;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initPlayer();
-  }
-
-  @override
-  void didUpdateWidget(covariant _VideoPlayerWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url) {
-      _controller = null;
-      _initPlayer();
-    }
-  }
-
-  void _initPlayer() {
-    if (widget.url.isEmpty) {
-      setState(() { _hasError = true; _loading = false; });
-      return;
-    }
-
-    setState(() { _loading = true; _hasError = false; });
-
-    final id = YouTubeUtils.extractId(widget.url);
-    String html;
-    if (id != null && id.isNotEmpty) {
-      html = '''
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-          <style>
-            * { margin: 0; padding: 0; }
-            html, body { width: 100%; height: 100%; background: #0F172A; overflow: hidden; }
-            iframe { width: 100%; height: 100%; border: none; }
-          </style>
-        </head>
-        <body>
-          <iframe src="https://www.youtube.com/embed/$id?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen></iframe>
-        </body>
-        </html>
-      ''';
-    } else {
-      html = '''
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-          <style>
-            * { margin: 0; padding: 0; }
-            html, body { width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-            video { width: 100%; height: 100%; object-fit: contain; }
-          </style>
-        </head>
-        <body>
-          <video src="${widget.url}" controls autoplay playsinline></video>
-        </body>
-        </html>
-      ''';
-    }
-
-    final ctrl = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(YouTubeUtils.webUserAgent)
-      ..setBackgroundColor(const Color(0xFF0F172A))
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) {
-          if (mounted) setState(() => _loading = false);
-        },
-        onWebResourceError: (_) {
-          if (mounted) setState(() { _loading = false; _hasError = true; });
-        },
-      ))
-      ..loadHtmlString(html);
-
-    _controller = ctrl;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_hasError) {
-      return AspectRatio(
+    final isYoutube = isYouTubeUrl(url);
+
+    if (isYoutube) {
+      return YoutubePlayerWidget(
+        videoUrl: url,
+        autoPlay: true,
+      );
+    }
+
+    // Non-YouTube: HTML5 video player via WebView (non-YouTube videos are direct links)
+    if (url.isEmpty) {
+      return const AspectRatio(
         aspectRatio: 16 / 9,
         child: ColoredBox(
-          color: const Color(0xFF0F172A),
-          child: const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline_rounded, color: Colors.white38, size: 40),
-                SizedBox(height: 8),
-                Text('Unable to load video', style: TextStyle(color: Colors.white38, fontSize: 13)),
-              ],
-            ),
+          color: Color(0xFF0F172A),
+          child: Center(
+            child: Text('No video', style: TextStyle(color: Colors.white38, fontSize: 13)),
           ),
         ),
       );
     }
 
+    // For non-YouTube videos, show a tap-to-play card (direct video links)
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ColoredBox(
         color: const Color(0xFF0F172A),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (_controller != null)
-              Positioned.fill(child: WebViewWidget(controller: _controller!)),
-            if (_loading)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black38,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.5),
-                        SizedBox(height: 12),
-                        Text('Loading video...', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.play_circle_outline_rounded, color: Colors.white54, size: 56),
+              const SizedBox(height: 8),
+              const Text('Tap to play video', style: TextStyle(color: Colors.white54, fontSize: 13)),
+            ],
+          ),
         ),
       ),
     );

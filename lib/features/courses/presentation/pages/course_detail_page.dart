@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/youtube_utils.dart';
+import '../../../../core/widgets/youtube_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../providers/courses_provider.dart';
@@ -30,55 +30,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
   int _selectedRating = 0;
   bool _isSubmitting = false;
   List<bool> _sectionExpanded = [true];
-  WebViewController? _videoController;
-  bool _videoLoading = false;
   bool _hasRedirected = false;
-
-  String? _normalizeYoutube(String? url) {
-    if (url == null || url.isEmpty) return null;
-    final patterns = [
-      RegExp(r'youtube\.com/embed/([a-zA-Z0-9_-]+)'),
-      RegExp(r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)'),
-      RegExp(r'youtu\.be/([a-zA-Z0-9_-]+)'),
-      RegExp(r'youtube\.com/shorts/([a-zA-Z0-9_-]+)'),
-    ];
-    for (final p in patterns) {
-      final m = p.firstMatch(url);
-      if (m != null) return 'https://www.youtube.com/embed/${m.group(1)}?autoplay=0&rel=0&modestbranding=1&playsinline=1';
-    }
-    if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(url.trim())) {
-      return 'https://www.youtube.com/embed/${url.trim()}?autoplay=0&rel=0&modestbranding=1&playsinline=1';
-    }
-    return null;
-  }
-
-  String? _extractYoutubeId(String? url) {
-    if (url == null || url.isEmpty) return null;
-    final patterns = [
-      RegExp(r'youtube\.com/embed/([a-zA-Z0-9_-]+)'),
-      RegExp(r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)'),
-      RegExp(r'youtu\.be/([a-zA-Z0-9_-]+)'),
-      RegExp(r'youtube\.com/shorts/([a-zA-Z0-9_-]+)'),
-    ];
-    for (final p in patterns) {
-      final m = p.firstMatch(url);
-      if (m != null) return m.group(1);
-    }
-    return null;
-  }
-
-  void _initVideoPlayer(String url) {
-    final embed = _normalizeYoutube(url);
-    if (embed == null) return;
-    setState(() { _videoLoading = true; });
-    _videoController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) { if (mounted) setState(() { _videoLoading = false; }); },
-      ))
-      ..loadRequest(Uri.parse(embed));
-  }
 
   @override
   void dispose() {
@@ -315,7 +267,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
   // ─── ENROLLED VIEW ───────────────────────────────────────────
   Widget _buildEnrolledView(dynamic course, User? user, List videos, int unlockedVideos, bool isCourseComplete, bool isQuizComplete, bool isAdmin, double avgRating) {
     final selectedVideo = _currentVideoIndex < videos.length ? videos[_currentVideoIndex] : null;
-    final isYoutube = _normalizeYoutube(selectedVideo?['videoLink']) != null;
+    final isYoutube = isYouTubeUrl(selectedVideo?['videoLink']) != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -378,36 +330,9 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
   }
 
   void _refreshVideo() {
-    final courseAsync = ref.read(courseDetailProvider(widget.courseId));
-    courseAsync.whenData((course) {
-      if (_currentVideoIndex < course.videos.length) {
-        final v = course.videos[_currentVideoIndex];
-        if (_normalizeYoutube(v['videoLink']) != null) {
-          _initVideoPlayer(v['videoLink']);
-        } else {
-          final url = v['videoLink'] ?? '';
-          if (url.isNotEmpty) {
-            setState(() { _videoLoading = true; });
-            _videoController = WebViewController()
-              ..setJavaScriptMode(JavaScriptMode.unrestricted)
-              ..setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
-              ..setNavigationDelegate(NavigationDelegate(
-                onPageFinished: (_) { if (mounted) setState(() { _videoLoading = false; }); },
-              ))
-              ..loadHtmlString('''
-                <!DOCTYPE html>
-                <html><head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-                video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
-                </head><body>
-                <video src="$url" controls playsinline></video>
-                </body></html>
-              ''');
-          }
-        }
-      }
-    });
+    // Video is now managed by YoutubePlayerWidget — no manual refresh needed.
+    // Trigger a rebuild to pick up new video URL.
+    if (mounted) setState(() {});
   }
 
   Widget _bannerImage(String? url) {
@@ -649,7 +574,7 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
                       final globalIdx = sIdx * 5 + vIdx;
                       final v = section[vIdx];
                       final locked = isEnrolled && globalIdx >= unlockedVideos;
-                      final isYoutube = _normalizeYoutube(v['videoLink']) != null;
+                      final isYoutube = isYouTubeUrl(v['videoLink']) != null;
                       return GestureDetector(
                         onTap: locked ? null : () => _showVideoModal(v, isYoutube),
                         child: Container(
@@ -729,58 +654,32 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
   Widget _buildVideoPlayer(dynamic video, bool isYoutube) {
     final url = video['videoLink'] ?? '';
     if (isYoutube) {
-      final id = _extractYoutubeId(url);
-      if (id == null) return const SizedBox(height: 200, child: Center(child: Text('Invalid video URL')));
       return GestureDetector(
         onTap: () => _showVideoModal(video, true),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.network(
-                'https://img.youtube.com/vi/$id/maxresdefault.jpg',
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.black,
-                  child: const Icon(Icons.play_circle_outline, color: Colors.white54, size: 64),
-                ),
-              ),
-              Container(color: Colors.black26),
-              Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), shape: BoxShape.circle),
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
-              ),
-            ],
-          ),
-        ),
+        child: YoutubeThumbnailCard(videoUrl: url, title: video['videoTitle']),
       );
     }
-    final videoHtml = '''
-      <!DOCTYPE html>
-      <html><head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-      <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-      video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
-      </head><body>
-      <video src="$url" controls playsinline></video>
-      </body></html>''';
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: WebViewWidget(controller: WebViewController()
-              ..setJavaScriptMode(JavaScriptMode.unrestricted)
-              ..setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36')
-              ..setNavigationDelegate(NavigationDelegate(
-                onNavigationRequest: (req) => NavigationDecision.navigate,
-              ))
-              ..loadHtmlString(videoHtml)),
-          ),
-        ],
+    // Non-YouTube: show play button over thumbnail
+    return GestureDetector(
+      onTap: () => _showVideoModal(video, false),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              color: Colors.black,
+              child: const Center(
+                child: Icon(Icons.play_circle_outline, color: Colors.white54, size: 64),
+              ),
+            ),
+            Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), shape: BoxShape.circle),
+              child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -791,24 +690,13 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
     final title = video['videoTitle'] ?? '';
 
     if (isYoutube) {
-      final id = _extractYoutubeId(url);
+      final id = extractYoutubeId(url);
       if (id == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invalid video URL'), backgroundColor: AppColors.error),
         );
         return;
       }
-      final html = '''
-        <!DOCTYPE html>
-        <html><head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0F172A;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-        iframe{width:100%;height:100%;border:none;position:absolute;top:0;left:0;}</style>
-        </head><body>
-        <iframe src="https://www.youtube.com/embed/$id?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
-          allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share"
-          allowfullscreen></iframe>
-        </body></html>''';
       Navigator.of(context).push(
         MaterialPageRoute(
           fullscreenDialog: true,
@@ -822,74 +710,16 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
               ),
               title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
-            body: WebViewWidget(controller: WebViewController()
-              ..setJavaScriptMode(JavaScriptMode.unrestricted)
-              ..setUserAgent(YouTubeUtils.webUserAgent)
-              ..setBackgroundColor(const Color(0xFF0F172A))
-              ..setNavigationDelegate(NavigationDelegate(
-                onNavigationRequest: (req) {
-                  final u = req.url;
-                  if (u.contains('youtube.com/embed') || u.startsWith('data:')) return NavigationDecision.navigate;
-                  return NavigationDecision.prevent;
-                },
-              ))
-              ..loadHtmlString(html)),
+            body: YoutubePlayerWidget(videoUrl: url, autoPlay: true),
           ),
         ),
       );
       return;
     }
 
-    // Non-YouTube: use WebView
-    final videoHtml = '''
-      <!DOCTYPE html>
-      <html><head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-      <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
-      video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
-      </head><body>
-      <video src="$url" controls autoplay playsinline></video>
-      </body></html>''';
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(),
-      builder: (ctx) {
-        return SizedBox(
-          height: MediaQuery.of(context).size.height,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: WebViewWidget(controller: WebViewController()
-                  ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                  ..setUserAgent(YouTubeUtils.webUserAgent)
-                  ..setBackgroundColor(const Color(0xFF0F172A))
-                  ..loadHtmlString(videoHtml)),
-              ),
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 8,
-                left: 8,
-                child: SafeArea(
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ),
-              ),
-              if (title.isNotEmpty)
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 8,
-                  left: 56,
-                  right: 56,
-                  child: SafeArea(
-                    child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+    // Non-YouTube: open URL in browser (non-YouTube videos stored as direct links)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Video link — tap to open externally'), backgroundColor: AppColors.primary),
     );
   }
 
