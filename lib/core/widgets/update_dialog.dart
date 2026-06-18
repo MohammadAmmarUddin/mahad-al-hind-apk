@@ -47,7 +47,12 @@ class _UpdateDialogState extends State<UpdateDialog>
 
   Future<void> _download() async {
     final uri = Uri.parse(widget.config.apkUrl);
-    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+    if (mounted && widget.config.forceUpdate) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override

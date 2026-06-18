@@ -79,6 +79,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
 
         if (isForce) {
           await UpdateDialog.show(context, effectiveConfig);
+          await Future.delayed(const Duration(seconds: 1));
           if (mounted) _initAndNavigate();
           return;
         } else {

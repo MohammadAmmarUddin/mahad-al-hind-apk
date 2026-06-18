@@ -29,10 +29,15 @@ class UpdateService {
     }
   }
 
-  /// Returns the current installed app version string (e.g. "1.0.0").
+  /// Returns the current installed app version string (e.g. "1.2.0").
+  /// Strips the build number suffix (e.g. "1.2.0+1" → "1.2.0").
   static Future<String> getCurrentVersion() async {
     final info = await PackageInfo.fromPlatform();
-    return info.version;
+    final version = info.version;
+    if (version.contains('+')) {
+      return version.split('+').first;
+    }
+    return version;
   }
 
   /// Checks if an update is available (current < latest).
@@ -52,12 +57,12 @@ class UpdateService {
   /// Semantic version comparison.
   /// Returns -1 if current < target, 0 if equal, 1 if current > target.
   static int compareVersions(String current, String target) {
-    final cParts = current.split('.').map(int.tryParse).toList();
-    final tParts = target.split('.').map(int.tryParse).toList();
+    final cParts = current.split('.').map((p) => int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0).toList();
+    final tParts = target.split('.').map((p) => int.tryParse(p.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0).toList();
     final len = cParts.length > tParts.length ? cParts.length : tParts.length;
     for (var i = 0; i < len; i++) {
-      final c = i < cParts.length ? (cParts[i] ?? 0) : 0;
-      final t = i < tParts.length ? (tParts[i] ?? 0) : 0;
+      final c = i < cParts.length ? cParts[i] : 0;
+      final t = i < tParts.length ? tParts[i] : 0;
       if (c < t) return -1;
       if (c > t) return 1;
     }
