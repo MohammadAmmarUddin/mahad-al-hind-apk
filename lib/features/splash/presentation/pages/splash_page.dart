@@ -67,7 +67,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
       final updateAvailable =
           UpdateService.isUpdateAvailable(currentVersion, config);
 
-      if (!updateAvailable) return true;
+      if (!updateAvailable && !config.showToUpdated) return true;
 
       final isForce = config.forceUpdate ||
           UpdateService.isBelowMinVersion(currentVersion, config);
@@ -79,6 +79,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
         apkUrl: config.apkUrl,
         releaseNotes: config.releaseNotes,
         updateEnabled: config.updateEnabled,
+        showToUpdated: config.showToUpdated,
       );
 
       if (!mounted) return true;

@@ -7,7 +7,7 @@ import '../../shared/providers/core_providers.dart';
 class UploadProgressDialog extends ConsumerStatefulWidget {
   final File file;
   final String folder;
-  final void Function(String url) onSuccess;
+  final void Function(String url, String publicId) onSuccess;
   final void Function(String error) onError;
 
   const UploadProgressDialog({
@@ -22,7 +22,7 @@ class UploadProgressDialog extends ConsumerStatefulWidget {
     BuildContext context, {
     required File file,
     required String folder,
-    required void Function(String url) onSuccess,
+    required void Function(String url, String publicId) onSuccess,
     required void Function(String error) onError,
   }) async {
     await showDialog(
@@ -81,7 +81,7 @@ class _UploadProgressDialogState extends ConsumerState<UploadProgressDialog>
         await Future.delayed(const Duration(milliseconds: 600));
         if (mounted) {
           Navigator.of(context).pop();
-          widget.onSuccess(result.url);
+          widget.onSuccess(result.url, result.publicId);
         }
       } else if (mounted) {
         setState(() { _error = 'Upload failed'; _uploading = false; });

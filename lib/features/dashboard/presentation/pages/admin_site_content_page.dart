@@ -17,7 +17,7 @@ class AdminSiteContentPage extends ConsumerStatefulWidget {
 class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
   Map<String, dynamic>? _content;
   bool _loading = true;
-  List<dynamic> _heroImages = [];
+  List<Map<String, dynamic>> _heroImages = [];
   bool _slideshow = false;
   bool _imagesOnly = false;
   Map<String, bool> _sectionToggles = {};
@@ -32,7 +32,15 @@ class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
   void _loadHeroConfig() {
     if (_content == null) return;
     final banners = _content!['heroBanners'] as List<dynamic>? ?? [];
-    _heroImages = banners.map((b) => b is Map ? b['url'] ?? '' : '').where((u) => u.toString().isNotEmpty).toList();
+    _heroImages = banners.map((b) {
+      if (b is Map) {
+        return {
+          'url': b['url'] ?? '',
+          'publicId': b['publicId'] ?? '',
+        };
+      }
+      return {'url': '', 'publicId': ''};
+    }).where((m) => (m['url'] as String).isNotEmpty).toList();
     final settings = _content!['heroBannerSettings'] as Map<String, dynamic>? ?? {};
     _slideshow = settings['slideshow'] == true;
     _imagesOnly = settings['imagesOnly'] == true;
@@ -40,7 +48,10 @@ class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
 
   Future<void> _saveHeroConfig() async {
     try {
-      final banners = _heroImages.map((url) => {'url': url}).toList();
+      final banners = _heroImages.map((img) => {
+        'url': img['url'],
+        'publicId': img['publicId'] ?? '',
+      }).toList();
       await ref.read(dioClientProvider).patch('/api/site-content/public', data: {
         'heroBanners': banners,
         'heroBannerSettings': {'slideshow': _slideshow, 'imagesOnly': _imagesOnly},
@@ -99,8 +110,8 @@ class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
         context,
         file: file,
         folder: 'hero_banners',
-        onSuccess: (url) {
-          setState(() { _heroImages.add(url); });
+        onSuccess: (url, publicId) {
+          setState(() { _heroImages.add({'url': url, 'publicId': publicId}); });
           _saveHeroConfig();
         },
         onError: (error) {
@@ -115,8 +126,16 @@ class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
   }
 
   void _removeHeroImage(int index) {
+    final removed = _heroImages[index];
     setState(() { _heroImages.removeAt(index); });
     _saveHeroConfig();
+    final publicId = removed['publicId'] as String? ?? '';
+    if (publicId.isNotEmpty) {
+      ref.read(dioClientProvider).delete('/api/cloudinary/destroy', data: {
+        'publicId': publicId,
+        'resourceType': 'image',
+      }).catchError((_) {});
+    }
   }
 
   @override
@@ -306,7 +325,7 @@ class _AdminSiteContentPageState extends ConsumerState<AdminSiteContentPage> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: CachedNetworkImage(
-                              imageUrl: _heroImages[i],
+                              imageUrl: _heroImages[i]['url'] ?? '',
                               fit: BoxFit.cover,
                               height: 160,
                               placeholder: (_, __) => Container(color: AppColors.surfaceVariant, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),

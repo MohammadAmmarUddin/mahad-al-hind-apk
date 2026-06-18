@@ -91,6 +91,10 @@ class HomePage extends ConsumerWidget {
                     VideosSection(videos: homeData.videos),
                     const SizedBox(height: 20),
                   ],
+                  if (toggles['gallery'] == true) ...[
+                    GalleryPreviewSection(gallery: homeData.gallery),
+                    const SizedBox(height: 20),
+                  ],
                   if (toggles['audio'] == true) ...[
                     const AudioPreviewSection(),
                     const SizedBox(height: 20),
@@ -98,10 +102,6 @@ class HomePage extends ConsumerWidget {
                   if (toggles['testimonials'] == true) ...[
                     TestimonialsSection(reviews: homeData.reviews),
                     const SizedBox(height: 20),
-                  ],
-                  if (toggles['gallery'] == true) ...[
-                    GalleryPreviewSection(gallery: homeData.gallery),
-                    const SizedBox(height: 32),
                   ],
                 ]),
               ),

@@ -19,7 +19,9 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
   final _notesCtrl = TextEditingController();
   bool _forceUpdate = false;
   bool _updateEnabled = true;
+  bool _showToUpdated = false;
   bool _saving = false;
+  bool _hasExistingConfig = false;
 
   @override
   void initState() {
@@ -31,8 +33,10 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
         _apkUrlCtrl.text = config.apkUrl;
         _notesCtrl.text = config.releaseNotes;
         setState(() {
+          _hasExistingConfig = true;
           _forceUpdate = config.forceUpdate;
           _updateEnabled = config.updateEnabled;
+          _showToUpdated = config.showToUpdated;
         });
       }
     });
@@ -60,26 +64,35 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
       );
       return;
     }
+    await _sendPatch({
+      'latestVersion': _versionCtrl.text.trim(),
+      'minVersion': _minVersionCtrl.text.trim().isNotEmpty ? _minVersionCtrl.text.trim() : _versionCtrl.text.trim(),
+      'apkUrl': _apkUrlCtrl.text.trim(),
+      'releaseNotes': _notesCtrl.text.trim(),
+      'forceUpdate': _forceUpdate,
+      'updateEnabled': _updateEnabled,
+      'showToUpdated': _showToUpdated,
+    });
+  }
 
+  Future<void> _saveToggles() async {
+    await _sendPatch({
+      'forceUpdate': _forceUpdate,
+      'updateEnabled': _updateEnabled,
+      'showToUpdated': _showToUpdated,
+    });
+  }
+
+  Future<void> _sendPatch(Map<String, dynamic> data) async {
     setState(() => _saving = true);
     try {
       final dio = ref.read(dioClientProvider);
       await dio.ensureTokenLoaded();
-      await dio.patch(
-        ApiEndpoints.adminAppUpdate,
-        data: {
-          'latestVersion': _versionCtrl.text.trim(),
-          'minVersion': _minVersionCtrl.text.trim().isNotEmpty ? _minVersionCtrl.text.trim() : _versionCtrl.text.trim(),
-          'forceUpdate': _forceUpdate,
-          'apkUrl': _apkUrlCtrl.text.trim(),
-          'releaseNotes': _notesCtrl.text.trim(),
-          'updateEnabled': _updateEnabled,
-        },
-      );
+      await dio.patch(ApiEndpoints.adminAppUpdate, data: data);
       ref.invalidate(adminUpdateConfigProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Update published!'), backgroundColor: AppColors.success),
+          const SnackBar(content: Text('Saved!'), backgroundColor: AppColors.success),
         );
       }
     } catch (e) {
@@ -170,7 +183,9 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                     ),
                     value: _forceUpdate,
                     activeThumbColor: AppColors.error,
-                    onChanged: (v) => setState(() => _forceUpdate = v),
+                    onChanged: _hasExistingConfig
+                        ? (v) { setState(() => _forceUpdate = v); _saveToggles(); }
+                        : (v) => setState(() => _forceUpdate = v),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -181,7 +196,22 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
                     ),
                     value: _updateEnabled,
                     activeThumbColor: AppColors.primary,
-                    onChanged: (v) => setState(() => _updateEnabled = v),
+                    onChanged: _hasExistingConfig
+                        ? (v) { setState(() => _updateEnabled = v); _saveToggles(); }
+                        : (v) => setState(() => _updateEnabled = v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show to Updated Users', style: TextStyle(fontSize: 14)),
+                    subtitle: Text(
+                      _showToUpdated ? 'Shows popup even if user has latest version' : 'Only shows to users with older version',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    value: _showToUpdated,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: _hasExistingConfig
+                        ? (v) { setState(() => _showToUpdated = v); _saveToggles(); }
+                        : (v) => setState(() => _showToUpdated = v),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(

@@ -374,6 +374,26 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
         final v = course.videos[_currentVideoIndex];
         if (_normalizeYoutube(v['videoLink']) != null) {
           _initVideoPlayer(v['videoLink']);
+        } else {
+          final url = v['videoLink'] ?? '';
+          if (url.isNotEmpty) {
+            setState(() { _videoLoading = true; });
+            _videoController = WebViewController()
+              ..setJavaScriptMode(JavaScriptMode.unrestricted)
+              ..setNavigationDelegate(NavigationDelegate(
+                onPageFinished: (_) { if (mounted) setState(() { _videoLoading = false; }); },
+              ))
+              ..loadHtmlString('''
+                <!DOCTYPE html>
+                <html><head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+                video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
+                </head><body>
+                <video src="$url" controls playsinline></video>
+                </body></html>
+              ''');
+          }
         }
       }
     });
@@ -727,14 +747,28 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
         ),
       );
     }
-    return GestureDetector(
-      onTap: () => _showVideoModal(video, false),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Container(
-          color: Colors.black,
-          child: const Center(child: Icon(Icons.play_circle_outline, size: 64, color: Colors.white54)),
-        ),
+    final videoHtml = '''
+      <!DOCTYPE html>
+      <html><head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+      video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
+      </head><body>
+      <video src="$url" controls playsinline></video>
+      </body></html>''';
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: WebViewWidget(controller: WebViewController()
+              ..setJavaScriptMode(JavaScriptMode.unrestricted)
+              ..setNavigationDelegate(NavigationDelegate(
+                onNavigationRequest: (req) => NavigationDecision.navigate,
+              ))
+              ..loadHtmlString(videoHtml)),
+          ),
+        ],
       ),
     );
   }
@@ -810,11 +844,31 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
                 ),
               );
             }
+            final videoHtml = '''
+              <!DOCTYPE html>
+              <html><head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+              <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;}
+              video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;}</style>
+              </head><body>
+              <video src="$url" controls autoplay playsinline></video>
+              </body></html>''';
             return SizedBox(
               height: MediaQuery.of(context).size.height,
               child: Stack(
                 children: [
-                  const Center(child: CircularProgressIndicator(color: Colors.white)),
+                  Positioned.fill(
+                    child: WebViewWidget(controller: WebViewController()
+                      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                      ..setNavigationDelegate(NavigationDelegate(
+                        onNavigationRequest: (req) {
+                          final u = req.url;
+                          if (u.startsWith('data:') || u.contains('blob:')) return NavigationDecision.navigate;
+                          return NavigationDecision.navigate;
+                        },
+                      ))
+                      ..loadHtmlString(videoHtml)),
+                  ),
                   Positioned(
                     top: MediaQuery.of(context).padding.top + 8,
                     left: 8,
@@ -825,6 +879,15 @@ class _CourseDetailPageState extends ConsumerState<CourseDetailPage> {
                       ),
                     ),
                   ),
+                  if (title.isNotEmpty)
+                    Positioned(
+                      top: MediaQuery.of(context).padding.top + 8,
+                      left: 56,
+                      right: 56,
+                      child: SafeArea(
+                        child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
                 ],
               ),
             );
