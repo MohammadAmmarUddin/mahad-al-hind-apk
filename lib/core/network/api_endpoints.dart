@@ -94,6 +94,6 @@ abstract class ApiEndpoints {
   static const String orders = '/api/orders';
   
   // App Update
-  static const String appVersion = '/api/app/version';
-  static const String adminAppUpdate = '/api/admin/app-update';
+  static const String appVersion = '/api/app-version';
+  static const String adminAppUpdate = '/api/app-update';
 }

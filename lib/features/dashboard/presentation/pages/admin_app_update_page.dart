@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/models/app_update_config.dart';
+import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/services/update_provider.dart';
 import '../../../../shared/providers/core_providers.dart';
 
@@ -63,7 +64,7 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
     setState(() => _saving = true);
     try {
       await ref.read(dioClientProvider).patch(
-        '/api/admin/app-update',
+        ApiEndpoints.adminAppUpdate,
         data: {
           'latestVersion': _versionCtrl.text.trim(),
           'minVersion': _minVersionCtrl.text.trim().isNotEmpty ? _minVersionCtrl.text.trim() : _versionCtrl.text.trim(),
