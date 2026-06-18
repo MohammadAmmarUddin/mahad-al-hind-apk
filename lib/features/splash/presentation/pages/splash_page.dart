@@ -21,6 +21,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   double _progress = 0;
+  bool _forceUpdateBlocked = false;
 
   @override
   void initState() {
@@ -42,63 +43,85 @@ class _SplashPageState extends ConsumerState<SplashPage>
     });
 
     _controller.forward();
-    _initAndNavigate();
+    _checkForUpdate();
   }
 
-  Future<void> _initAndNavigate() async {
+  Future<void> _checkForUpdate() async {
     await Future.delayed(const Duration(seconds: 2));
-
     if (!mounted) return;
 
-    bool navigatedFromDialog = false;
-
+    AppUpdateConfig? config;
     try {
-      final config = await ref.read(updateServiceProvider).checkForUpdate();
-      final currentVersion = await UpdateService.getCurrentVersion();
-
-      print('[Splash] Current version: $currentVersion');
-      print('[Splash] Config: ${config?.latestVersion}, forceUpdate: ${config?.forceUpdate}, updateEnabled: ${config?.updateEnabled}');
-
-      if (config != null && config.updateEnabled &&
-          UpdateService.isUpdateAvailable(currentVersion, config)) {
-        if (!mounted) return;
-
-        final isForce = config.forceUpdate ||
-            UpdateService.isBelowMinVersion(currentVersion, config);
-
-        print('[Splash] Update available, isForce: $isForce');
-
-        final effectiveConfig = AppUpdateConfig(
-          latestVersion: config.latestVersion,
-          minVersion: config.minVersion,
-          forceUpdate: isForce,
-          apkUrl: config.apkUrl,
-          releaseNotes: config.releaseNotes,
-          updateEnabled: config.updateEnabled,
-        );
-
-        if (isForce) {
-          await UpdateDialog.show(context, effectiveConfig);
-          await Future.delayed(const Duration(seconds: 1));
-          if (mounted) _initAndNavigate();
-          return;
-        } else {
-          await UpdateDialog.show(context, effectiveConfig, onLater: () {
-            navigatedFromDialog = true;
-            _navigateToApp();
-          });
-        }
-      } else {
-        print('[Splash] No update needed');
-      }
+      config = await ref.read(updateServiceProvider).checkForUpdate();
     } catch (e) {
       print('[Splash] Update check error: $e');
     }
 
     if (!mounted) return;
-    if (!navigatedFromDialog) {
+
+    if (config != null && config.updateEnabled) {
+      final currentVersion = await UpdateService.getCurrentVersion();
+      final updateAvailable = UpdateService.isUpdateAvailable(currentVersion, config);
+
+      if (updateAvailable) {
+        final isForce = config.forceUpdate ||
+            UpdateService.isBelowMinVersion(currentVersion, config);
+
+        if (isForce) {
+          _forceUpdateBlocked = true;
+          _showForceUpdateDialog(config);
+          return;
+        } else {
+          final effectiveConfig = AppUpdateConfig(
+            latestVersion: config.latestVersion,
+            minVersion: config.minVersion,
+            forceUpdate: false,
+            apkUrl: config.apkUrl,
+            releaseNotes: config.releaseNotes,
+            updateEnabled: config.updateEnabled,
+          );
+          bool dismissed = false;
+          await UpdateDialog.show(context, effectiveConfig, onLater: () {
+            dismissed = true;
+          });
+          if (!mounted) return;
+          if (!dismissed) return;
+        }
+      }
+    }
+
+    if (!_forceUpdateBlocked) {
       _navigateToApp();
     }
+  }
+
+  void _showForceUpdateDialog(AppUpdateConfig config) {
+    final effectiveConfig = AppUpdateConfig(
+      latestVersion: config.latestVersion,
+      minVersion: config.minVersion,
+      forceUpdate: true,
+      apkUrl: config.apkUrl,
+      releaseNotes: config.releaseNotes,
+      updateEnabled: config.updateEnabled,
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: UpdateDialog(
+          config: effectiveConfig,
+          onLater: null,
+        ),
+        ),
+    ).then((_) {
+      if (mounted) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) _checkForUpdate();
+        });
+      }
+    });
   }
 
   void _navigateToApp() {
@@ -122,111 +145,114 @@ class _SplashPageState extends ConsumerState<SplashPage>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0A3D1F),
-              Color(0xFF0E5C28),
-              Color(0xFF1B7A3D),
-              Color(0xFF0A3D1F),
-            ],
-            stops: [0.0, 0.3, 0.6, 1.0],
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF0A3D1F),
+                Color(0xFF0E5C28),
+                Color(0xFF1B7A3D),
+                Color(0xFF0A3D1F),
+              ],
+              stops: [0.0, 0.3, 0.6, 1.0],
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -size.width * 0.3,
-              right: -size.width * 0.2,
-              child: Container(
-                width: size.width * 0.8,
-                height: size.width * 0.8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.04),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -size.width * 0.3,
+                right: -size.width * 0.2,
+                child: Container(
+                  width: size.width * 0.8,
+                  height: size.width * 0.8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.04),
+                  ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: -size.width * 0.25,
-              left: -size.width * 0.15,
-              child: Container(
-                width: size.width * 0.7,
-                height: size.width * 0.7,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.03),
+              Positioned(
+                bottom: -size.width * 0.25,
+                left: -size.width * 0.15,
+                child: Container(
+                  width: size.width * 0.7,
+                  height: size.width * 0.7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.03),
+                  ),
                 ),
               ),
-            ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset(
-                    AppAssets.logo,
-                    width: size.shortestSide * 0.35,
-                    height: size.shortestSide * 0.35,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Container(
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      AppAssets.logo,
                       width: size.shortestSide * 0.35,
                       height: size.shortestSide * 0.35,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                      ),
-                      child: const Icon(
-                        Icons.mosque_rounded,
-                        size: 70,
-                        color: AppColors.primary,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: size.shortestSide * 0.35,
+                        height: size.shortestSide * 0.35,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                        child: const Icon(
+                          Icons.mosque_rounded,
+                          size: 70,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 50),
-                  SizedBox(
-                    width: size.width * 0.5,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          height: 5,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(3),
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: LinearProgressIndicator(
-                              value: _progress,
-                              minHeight: 5,
-                              backgroundColor: Colors.transparent,
-                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                    const SizedBox(height: 50),
+                    SizedBox(
+                      width: size.width * 0.5,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            height: 5,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(3),
+                              color: Colors.white.withValues(alpha: 0.1),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: LinearProgressIndicator(
+                                value: _progress,
+                                minHeight: 5,
+                                backgroundColor: Colors.transparent,
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "Ma'hadul Qiraat Al Hind",
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 2,
+                          const SizedBox(height: 16),
+                          Text(
+                            "Ma'hadul Qiraat Al Hind",
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 2,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
