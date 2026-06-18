@@ -12,6 +12,7 @@ class UpdateService {
     try {
       final response = await _dio.get(ApiEndpoints.appVersion);
       final data = response.data;
+      print('[UpdateService] Response: $data');
       // Handle wrapped response: { data: { ... } }
       if (data is Map && data['data'] is Map) {
         return AppUpdateConfig.fromJson(Map<String, dynamic>.from(data['data']));
@@ -20,8 +21,10 @@ class UpdateService {
       if (data is Map && data['latestVersion'] != null) {
         return AppUpdateConfig.fromJson(Map<String, dynamic>.from(data));
       }
+      print('[UpdateService] Unexpected response format: $data');
       return null;
-    } catch (_) {
+    } catch (e) {
+      print('[UpdateService] checkForUpdate error: $e');
       return null;
     }
   }

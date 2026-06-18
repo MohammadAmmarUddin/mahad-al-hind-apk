@@ -56,12 +56,17 @@ class _SplashPageState extends ConsumerState<SplashPage>
       final config = await ref.read(updateServiceProvider).checkForUpdate();
       final currentVersion = await UpdateService.getCurrentVersion();
 
-      if (config != null &&
+      print('[Splash] Current version: $currentVersion');
+      print('[Splash] Config: ${config?.latestVersion}, forceUpdate: ${config?.forceUpdate}, updateEnabled: ${config?.updateEnabled}');
+
+      if (config != null && config.updateEnabled &&
           UpdateService.isUpdateAvailable(currentVersion, config)) {
         if (!mounted) return;
 
         final isForce = config.forceUpdate ||
             UpdateService.isBelowMinVersion(currentVersion, config);
+
+        print('[Splash] Update available, isForce: $isForce');
 
         final effectiveConfig = AppUpdateConfig(
           latestVersion: config.latestVersion,
@@ -82,8 +87,12 @@ class _SplashPageState extends ConsumerState<SplashPage>
             _navigateToApp();
           });
         }
+      } else {
+        print('[Splash] No update needed');
       }
-    } catch (_) {}
+    } catch (e) {
+      print('[Splash] Update check error: $e');
+    }
 
     if (!mounted) return;
     if (!navigatedFromDialog) {

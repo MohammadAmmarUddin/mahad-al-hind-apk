@@ -21,6 +21,7 @@ final currentVersionProvider = FutureProvider<String>((ref) async {
 final adminUpdateConfigProvider = FutureProvider<AppUpdateConfig?>((ref) async {
   try {
     final dio = ref.read(dioClientProvider);
+    await dio.ensureTokenLoaded();
     final res = await dio.get(ApiEndpoints.adminAppUpdate);
     final data = res.data;
     if (data is Map && data['data'] is Map) {

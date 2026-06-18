@@ -63,7 +63,9 @@ class _AdminAppUpdatePageState extends ConsumerState<AdminAppUpdatePage> {
 
     setState(() => _saving = true);
     try {
-      await ref.read(dioClientProvider).patch(
+      final dio = ref.read(dioClientProvider);
+      await dio.ensureTokenLoaded();
+      await dio.patch(
         ApiEndpoints.adminAppUpdate,
         data: {
           'latestVersion': _versionCtrl.text.trim(),
