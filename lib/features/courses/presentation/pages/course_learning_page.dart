@@ -1274,24 +1274,28 @@ class _CourseLearningPageState extends ConsumerState<CourseLearningPage>
   }
 }
 
-// ─── VIDEO PLAYER WIDGET (isolated to prevent parent rebuilds) ──────
-class _VideoPlayerWidget extends StatelessWidget {
+// ─── VIDEO PLAYER WIDGET (StatefulWidget for proper controller lifecycle) ──────
+class _VideoPlayerWidget extends StatefulWidget {
   final String url;
   const _VideoPlayerWidget({required this.url, super.key});
 
   @override
+  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+  @override
   Widget build(BuildContext context) {
-    final isYoutube = isYouTubeUrl(url);
+    final isYoutube = isYouTubeUrl(widget.url);
 
     if (isYoutube) {
       return YoutubePlayerWidget(
-        videoUrl: url,
+        videoUrl: widget.url,
         autoPlay: true,
       );
     }
 
-    // Non-YouTube: HTML5 video player via WebView (non-YouTube videos are direct links)
-    if (url.isEmpty) {
+    if (widget.url.isEmpty) {
       return const AspectRatio(
         aspectRatio: 16 / 9,
         child: ColoredBox(
@@ -1303,7 +1307,6 @@ class _VideoPlayerWidget extends StatelessWidget {
       );
     }
 
-    // For non-YouTube videos, show a tap-to-play card (direct video links)
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: ColoredBox(

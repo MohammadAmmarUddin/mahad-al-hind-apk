@@ -38,7 +38,7 @@ class YoutubePlayerWidget extends StatefulWidget {
 }
 
 class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
-  late YoutubePlayerController _controller;
+  YoutubePlayerController? _controller;
   bool _hasError = false;
   String? _errorMsg;
 
@@ -46,6 +46,18 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
   void initState() {
     super.initState();
     _initPlayer();
+  }
+
+  @override
+  void didUpdateWidget(covariant YoutubePlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _controller?.close();
+      _controller = null;
+      _hasError = false;
+      _errorMsg = null;
+      _initPlayer();
+    }
   }
 
   void _initPlayer() {
@@ -69,7 +81,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
 
   @override
   void dispose() {
-    _controller.close();
+    _controller?.close();
     super.dispose();
   }
 
@@ -98,7 +110,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
     }
 
     return YoutubePlayer(
-      controller: _controller,
+      controller: _controller!,
       aspectRatio: 16 / 9,
       autoFullScreen: true,
     );
